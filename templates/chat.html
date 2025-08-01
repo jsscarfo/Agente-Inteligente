@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MLB Assistant Chat - Consulta tus Documentos</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .stats-bar {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            color: white;
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .chat-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            max-height: 70vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .chat-header h2 {
+            margin-bottom: 5px;
+        }
+
+        .chat-header p {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            max-height: 400px;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .message.user .message-avatar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .message.assistant .message-avatar {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .message-content {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 15px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+
+        .message-content p {
+            text-align: justify;
+            line-height: 1.6;
+            margin-bottom: 12px;
+            text-indent: 0;
+        }
+
+        .message-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .message-content ul, .message-content ol {
+            text-align: left;
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        .message-content li {
+            margin-bottom: 5px;
+            line-height: 1.5;
+        }
+
+        .message-content strong, .message-content b {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .message-content em, .message-content i {
+            font-style: italic;
+            color: #34495e;
+        }
+
+        .message-content code {
+            background: #e8f4fd;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .confidence-bar {
+            background: #e9ecef;
+            height: 4px;
+            border-radius: 2px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            background: linear-gradient(90deg, #28a745, #20c997);
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .processing-time {
+            font-size: 0.8rem;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .message.assistant .message-content {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+        }
+
+        .message-time {
+            font-size: 0.8rem;
+            opacity: 0.6;
+            margin-top: 5px;
+        }
+
+        .chat-input-container {
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .chat-input-form {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .chat-input:focus {
+            border-color: #667eea;
+        }
+
+        .send-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: transform 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .send-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .send-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .suggestions {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+        }
+
+        .suggestions h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .suggestion-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .suggestion-chip {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: transform 0.2s ease;
+            border: none;
+        }
+
+        .suggestion-chip:hover {
+            transform: translateY(-2px);
+        }
+
+        .confidence-bar {
+            margin-top: 10px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            height: 6px;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb, #0abde3);
+            transition: width 0.3s ease;
+        }
+
+        .processing-time {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .stats-bar {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .message-content {
+                max-width: 85%;
+            }
+
+            .chat-input-form {
+                flex-direction: column;
+            }
+
+            .send-button {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        .typing-indicator {
+            display: none;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+
+        .typing-indicator.show {
+            display: block;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 5px;
+            justify-content: center;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes typing {
+            0%, 80%, 100% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-robot"></i> MLB Assistant Chat</h1>
+            <p>Consulta tus documentos de MLB de forma inteligente</p>
+        </div>
+
+        <div class="stats-bar">
+            <div class="stat-item">
+                <span class="stat-number" id="total-docs">{{ stats.total_documents }}</span>
+                <span class="stat-label">Documentos</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number" id="total-chunks">{{ stats.total_chunks }}</span>
+                <span class="stat-label">Fragmentos</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number" id="total-pages">{{ stats.documents | sum(attribute='pages') }}</span>
+                <span class="stat-label">Páginas</span>
+            </div>
+        </div>
+
+        <div class="chat-container">
+            <div class="chat-header">
+                <h2><i class="fas fa-comments"></i> Chat Inteligente</h2>
+                <p>Haz preguntas sobre las reglas y políticas de MLB</p>
+            </div>
+
+            <div class="chat-messages" id="chat-messages">
+                <div class="message assistant">
+                    <div class="message-avatar">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="message-content">
+                        <p>¡Hola! 👋 Soy tu asistente de MLB. Puedo ayudarte a encontrar información en tus documentos sobre:</p>
+                        <ul>
+                            <li>📋 Reglas y políticas de MLB</li>
+                            <li>🚫 Códigos de conducta</li>
+                            <li>⚖️ Reglas específicas (21, 510, etc.)</li>
+                            <li>🎰 Políticas sobre apuestas</li>
+                            <li>💊 Políticas sobre drogas</li>
+                            <li>📱 Políticas de redes sociales</li>
+                        </ul>
+                        <p style="margin-top: 10px;">¡Hazme cualquier pregunta!</p>
+                        <div class="message-time" id="welcome-time"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="typing-indicator" id="typing-indicator">
+                <div class="typing-dots">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+                <p style="text-align: center; margin-top: 10px; color: #666;">Buscando en los documentos...</p>
+            </div>
+
+            <div class="chat-input-container">
+                <form class="chat-input-form" id="chat-form">
+                    <input type="text" class="chat-input" id="message-input" placeholder="Escribe tu pregunta aquí..." autocomplete="off">
+                    <button type="submit" class="send-button" id="send-button">
+                        <i class="fas fa-paper-plane"></i>
+                        Enviar
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="suggestions">
+            <h3><i class="fas fa-lightbulb"></i> Preguntas Sugeridas</h3>
+            <div class="suggestion-chips">
+                <button class="suggestion-chip" onclick="sendSuggestion('¿Cuáles son las reglas sobre apuestas en MLB?')">
+                    🎰 Apuestas
+                </button>
+                <button class="suggestion-chip" onclick="sendSuggestion('¿Qué dice sobre el uso de drogas?')">
+                    💊 Drogas
+                </button>
+                <button class="suggestion-chip" onclick="sendSuggestion('¿Cuáles son las políticas de redes sociales?')">
+                    📱 Redes Sociales
+                </button>
+                <button class="suggestion-chip" onclick="sendSuggestion('¿Qué son las novatadas?')">
+                    🎭 Novatadas
+                </button>
+                <button class="suggestion-chip" onclick="sendSuggestion('¿Cuáles son las reglas sobre tabaco?')">
+                    🚭 Tabaco
+                </button>
+                <button class="suggestion-chip" onclick="sendSuggestion('¿Qué dice sobre violencia doméstica?')">
+                    ⚖️ Violencia Doméstica
+                </button>
+                <button class="suggestion-chip" onclick="sendSuggestion('¿Qué es la Regla 21?')">
+                    📋 Regla 21
+                </button>
+                <button class="suggestion-chip" onclick="sendSuggestion('¿Qué es la Regla 510?')">
+                    📋 Regla 510
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chat-messages');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const chatForm = document.getElementById('chat-form');
+        const typingIndicator = document.getElementById('typing-indicator');
+
+        function addMessage(content, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.innerHTML = isUser ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            messageContent.innerHTML = content;
+            
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(messageContent);
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function showTyping() {
+            typingIndicator.classList.add('show');
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function hideTyping() {
+            typingIndicator.classList.remove('show');
+        }
+
+        async function sendMessage(message) {
+            if (!message.trim()) return;
+
+            // Agregar mensaje del usuario con formato mejorado
+            const userMessage = `<p style="text-align: left;">${message}</p><div class="message-time">${new Date().toLocaleTimeString()}</div>`;
+            addMessage(userMessage, true);
+            
+            // Limpiar input
+            messageInput.value = '';
+            
+            // Mostrar indicador de escritura
+            showTyping();
+            
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+
+                const data = await response.json();
+                
+                // Ocultar indicador de escritura
+                hideTyping();
+                
+                // Construir respuesta con formato mejorado
+                let responseText = data.response;
+                
+                // Limpiar saltos de línea múltiples y espacios extra
+                responseText = responseText.replace(/\n\s*\n/g, '\n\n'); // Mantener solo dobles saltos
+                responseText = responseText.replace(/\n{3,}/g, '\n\n'); // Máximo 2 saltos consecutivos
+                responseText = responseText.trim();
+                
+                // Dividir en párrafos y formatear
+                const paragraphs = responseText.split('\n\n');
+                let responseContent = '';
+                
+                paragraphs.forEach((paragraph, index) => {
+                    if (paragraph.trim()) {
+                        // Si el párrafo contiene listas, mantener el formato
+                        if (paragraph.includes('•') || paragraph.includes('-')) {
+                            responseContent += `<p style="text-align: left;">${paragraph.replace(/\n/g, '<br>')}</p>`;
+                        } else {
+                            responseContent += `<p>${paragraph.replace(/\n/g, ' ')}</p>`;
+                        }
+                    }
+                });
+                
+                if (data.confidence > 0) {
+                    responseContent += `
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" style="width: ${data.confidence * 100}%"></div>
+                        </div>
+                        <div class="processing-time">
+                            <i class="fas fa-clock"></i> Procesado en ${data.processing_time.toFixed(2)}s
+                        </div>
+                    `;
+                }
+                
+                responseContent += `<div class="message-time">${new Date().toLocaleTimeString()}</div>`;
+                
+                // Agregar respuesta del asistente
+                addMessage(responseContent, false);
+                
+            } catch (error) {
+                hideTyping();
+                addMessage(`<p>❌ Error: ${error.message}</p><div class="message-time">${new Date().toLocaleTimeString()}</div>`, false);
+            }
+        }
+
+        function sendSuggestion(suggestion) {
+            messageInput.value = suggestion;
+            sendMessage(suggestion);
+        }
+
+        // Event listeners
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const message = messageInput.value.trim();
+            if (message) {
+                sendMessage(message);
+            }
+        });
+
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const message = messageInput.value.trim();
+                if (message) {
+                    sendMessage(message);
+                }
+            }
+        });
+
+        // Auto-focus en el input
+        messageInput.focus();
+
+        // Mostrar hora actual en el mensaje de bienvenida
+        document.getElementById('welcome-time').textContent = new Date().toLocaleTimeString();
+
+        // Actualizar estadísticas en tiempo real
+        async function updateStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const stats = await response.json();
+                
+                document.getElementById('total-docs').textContent = stats.total_documents;
+                document.getElementById('total-chunks').textContent = stats.total_chunks;
+                document.getElementById('total-pages').textContent = stats.documents.reduce((sum, doc) => sum + doc.pages, 0);
+            } catch (error) {
+                console.error('Error actualizando estadísticas:', error);
+            }
+        }
+
+        // Actualizar estadísticas cada 30 segundos
+        setInterval(updateStats, 30000);
+    </script>
+</body>
+</html> 
