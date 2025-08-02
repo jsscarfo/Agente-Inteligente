@@ -1,0 +1,11 @@
+{
+  "name": "railway-mcp-project",
+  "version": "1.0.0",
+  "description": "Railway MCP Integration",
+  "main": "index.js",
+  "scripts": {
+    "start": "npx @smithery/cli@latest run @jason-tan-swe/railway-mcp"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+} 
