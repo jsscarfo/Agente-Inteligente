@@ -47,7 +47,7 @@ except ImportError as e:
     logger.warning(f"⚠️ Algunos componentes no disponibles: {e}")
 
 # Configuración de Railway
-PORT = int(os.environ.get("PORT", 8000))
+PORT = int(os.environ.get("PORT", 8080))  # Railway usa 8080 por defecto
 RAILWAY_ENVIRONMENT = os.environ.get("RAILWAY_ENVIRONMENT", "development")
 
 # Crear aplicación FastAPI
