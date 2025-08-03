@@ -40,9 +40,9 @@ try:
     from agent.core.models_simple import AgentRequest, AgentResponse
     from agent.core.config import get_config
     from assistant_standalone import StandaloneAssistant
-    from assistant_multimodal import MultimodalAssistant
-    # Removed problematic import: from document_loader import PDFDocumentLoader
-    from cargar_pdf_simple import SimplePDFLoader
+    # Removed problematic imports that cause errors
+    # from assistant_multimodal import MultimodalAssistant
+    # from cargar_pdf_simple import SimplePDFLoader
 except ImportError as e:
     logger.warning(f"⚠️ Algunos componentes no disponibles: {e}")
 
@@ -120,20 +120,20 @@ async def startup_event():
         except Exception as e:
             logger.warning(f"⚠️ Error inicializando asistente básico: {e}")
         
-        # Inicializar asistente multimodal (opcional)
-        try:
-            multimodal_assistant = MultimodalAssistant()
-            await multimodal_assistant.initialize()
-            logger.info("✅ Asistente multimodal inicializado")
-        except Exception as e:
-            logger.warning(f"⚠️ Error inicializando asistente multimodal: {e}")
+        # Inicializar asistente multimodal (opcional) - Comentado por problemas de import
+        # try:
+        #     multimodal_assistant = MultimodalAssistant()
+        #     await multimodal_assistant.initialize()
+        #     logger.info("✅ Asistente multimodal inicializado")
+        # except Exception as e:
+        #     logger.warning(f"⚠️ Error inicializando asistente multimodal: {e}")
         
-        # Inicializar cargador de PDFs (simplificado)
-        try:
-            pdf_loader = SimplePDFLoader()
-            logger.info("✅ Cargador de PDFs inicializado")
-        except Exception as e:
-            logger.warning(f"⚠️ Error inicializando cargador de PDFs: {e}")
+        # Inicializar cargador de PDFs (simplificado) - Comentado por problemas de import
+        # try:
+        #     pdf_loader = SimplePDFLoader()
+        #     logger.info("✅ Cargador de PDFs inicializado")
+        # except Exception as e:
+        #     logger.warning(f"⚠️ Error inicializando cargador de PDFs: {e}")
         
         logger.info(f"✅ Sistema inicializado en entorno: {RAILWAY_ENVIRONMENT}")
         
