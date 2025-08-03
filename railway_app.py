@@ -41,7 +41,7 @@ try:
     from agent.core.config import get_config
     from assistant_standalone import StandaloneAssistant
     from assistant_multimodal import MultimodalAssistant
-    from document_loader import PDFDocumentLoader
+    # Removed problematic import: from document_loader import PDFDocumentLoader
     from cargar_pdf_simple import SimplePDFLoader
 except ImportError as e:
     logger.warning(f"⚠️ Algunos componentes no disponibles: {e}")
@@ -128,7 +128,7 @@ async def startup_event():
         except Exception as e:
             logger.warning(f"⚠️ Error inicializando asistente multimodal: {e}")
         
-        # Inicializar cargador de PDFs
+        # Inicializar cargador de PDFs (simplificado)
         try:
             pdf_loader = SimplePDFLoader()
             logger.info("✅ Cargador de PDFs inicializado")
