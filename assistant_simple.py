@@ -97,182 +97,173 @@ class SimpleAssistant:
             return "¡Hola! Soy tu asistente de IA. Estoy funcionando perfectamente y listo para ayudarte con cualquier tarea. ¿En qué puedo asistirte hoy?"
         
         elif "clima" in query_lower or "tiempo" in query_lower:
-            return "Para obtener información del clima, necesitaría conectarme a una API de clima. En una versión completa, podría darte datos actuales del clima de cualquier ciudad."
+            return "Actualmente no tengo acceso a datos meteorológicos en tiempo real, pero puedo ayudarte con información general sobre el clima o recomendaciones para diferentes tipos de clima."
         
-        elif "noticias" in query_lower:
-            return "Para obtener las últimas noticias, necesitaría conectarme a APIs de noticias. En una versión completa, podría buscar y resumir noticias sobre cualquier tema."
+        elif "noticias" in query_lower or "actualidad" in query_lower:
+            return "No tengo acceso directo a noticias en tiempo real, pero puedo ayudarte con análisis de tendencias, explicaciones de eventos históricos o información general sobre temas de actualidad."
         
-        elif "calcula" in query_lower or "matemática" in query_lower:
-            return "Tengo capacidades de cálculo integradas. En una versión completa, podría resolver ecuaciones complejas, estadísticas y más."
-        
-        elif "análisis" in query_lower or "investiga" in query_lower:
-            return "Puedo realizar análisis complejos y investigaciones. En una versión completa, podría analizar datos, buscar información y generar reportes detallados."
+        elif "matemáticas" in query_lower or "calcular" in query_lower or "suma" in query_lower:
+            return "Puedo ayudarte con cálculos matemáticos básicos. Por favor, proporciona los números y la operación que necesitas realizar."
         
         elif "ayuda" in query_lower or "qué puedes hacer" in query_lower:
-            return """¡Con gusto te explico mis capacidades!
+            return """¡Con gusto te ayudo! Puedo asistirte con:
 
-🤖 **Como Asistente de IA puedo:**
+🔍 **Búsqueda de información**: Explicar conceptos, definir términos, analizar temas
+📊 **Análisis de datos**: Interpretar información, crear resúmenes, identificar patrones
+✍️ **Generación de contenido**: Escribir textos, crear planes, desarrollar ideas
+🧮 **Cálculos**: Operaciones matemáticas básicas y análisis numérico
+📋 **Organización**: Crear listas, estructurar información, planificar tareas
+💡 **Recomendaciones**: Sugerir soluciones, proponer alternativas, dar consejos
 
-📝 **Procesar peticiones en texto libre** - Entiendo consultas complejas y las descompongo en tareas
-
-🔄 **Estructurar tareas automáticamente** - Uso LangGraph para coordinar múltiples pasos
-
-🔍 **Conectarme a fuentes de datos** - APIs de clima, noticias, finanzas, búsqueda web
-
-📊 **Generar respuestas inteligentes** - Combinando información de múltiples fuentes
-
-🛠️ **Usar herramientas especializadas** - Calculadora, analizador de texto, procesador de datos
-
-🗄️ **Almacenar información** - Base de datos PostgreSQL y sistema RAG
-
-💡 **Ejemplos de uso:**
-- "¿Cuál es el clima en Madrid?"
-- "Analiza el mercado de criptomonedas"
-- "Crea un plan de marketing digital"
-- "Calcula la rentabilidad de una inversión"
-
-¿Qué te gustaría que haga por ti?"""
+¿En qué área específica te gustaría que te ayude?"""
+        
+        elif "gracias" in query_lower or "thanks" in query_lower:
+            return "¡De nada! Es un placer poder ayudarte. Si necesitas algo más, no dudes en preguntar."
+        
+        elif "adiós" in query_lower or "bye" in query_lower or "chao" in query_lower:
+            return "¡Hasta luego! Ha sido un placer ayudarte. Que tengas un excelente día."
         
         else:
             return f"""He recibido tu consulta: "{query}"
 
-En esta versión simplificada, puedo procesar tu petición y generar respuestas básicas. Para funcionalidades completas como:
+Como asistente simplificado, puedo ayudarte con:
+- Explicaciones de conceptos
+- Análisis de información
+- Generación de contenido
+- Cálculos básicos
+- Recomendaciones generales
 
-• Conexión a APIs externas (clima, noticias, finanzas)
-• Análisis complejos con múltiples fuentes
-• Herramientas especializadas (cálculos, análisis de texto)
-• Sistema RAG para conocimiento personalizado
+Para obtener respuestas más específicas y detalladas, te recomiendo usar el asistente completo con acceso a bases de datos y APIs externas.
 
-Necesitarías configurar las APIs correspondientes en el archivo .env.
-
-¿Te gustaría que te ayude con algo específico o que te explique más sobre mis capacidades?"""
+¿Te gustaría que te ayude con algo específico dentro de mis capacidades?"""
     
     def get_status(self) -> Dict[str, Any]:
         """Obtener estado del asistente"""
-        uptime = (datetime.now() - self.start_time).total_seconds()
-        
         return {
             "agent_id": self.agent_id,
-            "status": "running" if self.is_running else "stopped",
-            "uptime": uptime,
+            "is_running": self.is_running,
+            "start_time": self.start_time.isoformat(),
+            "uptime": (datetime.now() - self.start_time).total_seconds(),
             "conversations": len(self.conversation_history),
-            "version": self.config.agent_version,
-            "model": "simple_assistant"
+            "version": "1.0.0",
+            "type": "simple_assistant"
         }
     
     def get_conversation_history(self) -> List[Dict[str, Any]]:
         """Obtener historial de conversaciones"""
-        return self.conversation_history
+        return [
+            {
+                "timestamp": conv["timestamp"].isoformat(),
+                "query": conv["query"],
+                "response": conv["response"]
+            }
+            for conv in self.conversation_history
+        ]
 
 
 async def interactive_mode():
     """Modo interactivo"""
-    print("🤖 ASISTENTE DE IA - MODO INTERACTIVO")
-    print("=" * 50)
-    print("💡 Escribe 'salir' para terminar")
-    print("💡 Escribe 'ayuda' para ver mis capacidades")
-    print("=" * 50)
-    
     assistant = SimpleAssistant()
     await assistant.start()
     
-    try:
-        while True:
-            print(f"\n👤 Tú: ", end="")
-            user_input = input().strip()
+    print("\n🎮 Modo Interactivo - Asistente Simple")
+    print("Escribe 'quit' para salir")
+    print("Escribe 'status' para ver el estado")
+    print("Escribe 'history' para ver el historial")
+    print("-" * 50)
+    
+    while True:
+        try:
+            query = input("\n🤖 Tú: ").strip()
             
-            if user_input.lower() in ['salir', 'exit', 'quit']:
+            if query.lower() == 'quit':
                 break
-            
-            if not user_input:
+            elif query.lower() == 'status':
+                status = assistant.get_status()
+                print(f"\n📊 Estado del Asistente:")
+                print(f"  ID: {status['agent_id']}")
+                print(f"  Ejecutándose: {'Sí' if status['is_running'] else 'No'}")
+                print(f"  Conversaciones: {status['conversations']}")
+                print(f"  Versión: {status['version']}")
+                continue
+            elif query.lower() == 'history':
+                history = assistant.get_conversation_history()
+                print(f"\n📚 Historial de Conversaciones ({len(history)}):")
+                for i, conv in enumerate(history[-5:], 1):  # Mostrar solo las últimas 5
+                    print(f"  {i}. {conv['query'][:50]}...")
+                continue
+            elif not query:
                 continue
             
-            # Crear petición
-            request = AgentRequest(
-                query=user_input,
-                priority=PriorityLevel.MEDIUM
-            )
-            
-            # Procesar petición
-            print("🤖 Asistente: Procesando...")
+            # Procesar consulta
+            request = AgentRequest(query=query)
             response = await assistant.process_request(request)
             
             if response.success:
-                print(f"🤖 Asistente: {response.content}")
-                print(f"⏱️  Tiempo: {response.processing_time:.2f}s")
-                print(f"📊 Confianza: {response.confidence_score:.1%}")
+                print(f"\n🤖 Asistente: {response.content}")
             else:
-                print(f"❌ Error: {response.error}")
+                print(f"\n❌ Error: {response.error}")
+                
+        except KeyboardInterrupt:
+            print("\n👋 ¡Hasta luego!")
+            break
+        except Exception as e:
+            print(f"\n❌ Error: {e}")
     
-    except KeyboardInterrupt:
-        print("\n\n🛑 Interrumpido por el usuario")
-    
-    finally:
-        await assistant.stop()
-        
-        # Mostrar estadísticas
-        status = assistant.get_status()
-        print(f"\n📊 Estadísticas de la sesión:")
-        print(f"   Conversaciones: {status['conversations']}")
-        print(f"   Tiempo activo: {status['uptime']:.2f}s")
-        print(f"   Estado: {status['status']}")
+    await assistant.stop()
 
 
 async def demo_mode():
     """Modo demostración"""
-    print("🎯 ASISTENTE DE IA - MODO DEMOSTRACIÓN")
-    print("=" * 50)
-    
     assistant = SimpleAssistant()
     await assistant.start()
     
-    # Consultas de demostración
+    print("\n🎬 Modo Demostración - Asistente Simple")
+    print("=" * 60)
+    
+    # Consultas de ejemplo
     demo_queries = [
         "Hola, ¿cómo estás?",
         "¿Qué puedes hacer?",
-        "¿Puedes ayudarme con el clima?",
-        "Necesito un análisis de mercado",
-        "Calcula 25 + 37"
+        "Necesito información sobre el clima",
+        "¿Puedes ayudarme con matemáticas?",
+        "Gracias por tu ayuda"
     ]
     
     for i, query in enumerate(demo_queries, 1):
-        print(f"\n🔍 Demostración {i}: {query}")
+        print(f"\n🔍 Consulta {i}: {query}")
         print("-" * 40)
         
-        request = AgentRequest(
-            query=query,
-            priority=PriorityLevel.MEDIUM
-        )
-        
+        request = AgentRequest(query=query)
         response = await assistant.process_request(request)
         
         if response.success:
-            print(f"✅ Respuesta: {response.content}")
-            print(f"⏱️  Tiempo: {response.processing_time:.2f}s")
+            print(f"✅ Respuesta generada en {response.processing_time:.2f}s")
             print(f"📊 Confianza: {response.confidence_score:.1%}")
+            print(f"📄 Respuesta: {response.content}")
         else:
             print(f"❌ Error: {response.error}")
         
-        print("-" * 40)
-    
-    await assistant.stop()
+        print("\n" + "=" * 60)
+        await asyncio.sleep(1)
     
     # Mostrar estadísticas finales
     status = assistant.get_status()
-    print(f"\n📊 Estadísticas de la demostración:")
-    print(f"   Consultas procesadas: {status['conversations']}")
-    print(f"   Tiempo total: {status['uptime']:.2f}s")
-    print(f"   Estado: {status['status']}")
+    print(f"\n📊 Estadísticas Finales:")
+    print(f"  Conversaciones: {status['conversations']}")
+    print(f"  Tiempo activo: {status['uptime']:.2f}s")
+    
+    await assistant.stop()
 
 
 async def main():
     """Función principal"""
     import argparse
     
-    parser = argparse.ArgumentParser(description="Asistente de IA Simplificado")
+    parser = argparse.ArgumentParser(description="🤖 Asistente de IA Simplificado")
     parser.add_argument("--interactive", "-i", action="store_true", help="Modo interactivo")
     parser.add_argument("--demo", "-d", action="store_true", help="Modo demostración")
-    parser.add_argument("--query", "-q", type=str, help="Consulta única")
+    parser.add_argument("--query", "-q", help="Consulta única")
     
     args = parser.parse_args()
     
@@ -284,18 +275,21 @@ async def main():
         assistant = SimpleAssistant()
         await assistant.start()
         
-        request = AgentRequest(query=args.query, priority=PriorityLevel.MEDIUM)
+        request = AgentRequest(query=args.query)
         response = await assistant.process_request(request)
         
         if response.success:
-            print(f"🤖 Respuesta: {response.content}")
+            print(f"✅ Respuesta: {response.content}")
         else:
             print(f"❌ Error: {response.error}")
         
         await assistant.stop()
     else:
-        # Modo por defecto: demostración
-        await demo_mode()
+        print("🤖 Asistente de IA Simplificado")
+        print("Uso:")
+        print("  python assistant_simple.py --interactive")
+        print("  python assistant_simple.py --demo")
+        print("  python assistant_simple.py --query 'tu consulta'")
 
 
 if __name__ == "__main__":

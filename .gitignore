@@ -325,5 +325,4 @@ $RECYCLE.BIN/
 *.pid
 *.port
 *.sock
-*.tmp
-*.temp 
+*.tmp 

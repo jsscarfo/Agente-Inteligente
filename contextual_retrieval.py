@@ -97,313 +97,361 @@ class ContextualRetrieval:
     def generate_context_for_chunk(self, chunk: ContextualChunk) -> str:
         """Generar contexto específico para un chunk usando Claude"""
         if not self.openai_api_key:
-            # Fallback sin IA - contexto básico
-            return f"Document: {chunk.document_title} (Page {chunk.page_number}). "
+            # Fallback sin API
+            return f"Contexto del documento '{chunk.document_title}', página {chunk.page_number}"
         
         try:
-            # Obtener contexto del documento completo
-            doc_content = self.get_document_context(chunk.document_id)
+            # Obtener contexto del documento
+            doc_context = self.get_document_context(chunk.document_id)
             
-            prompt = f"""<document> 
-{doc_content}
-</document> 
-Here is the chunk we want to situate within the whole document 
-<chunk> 
-{chunk.original_content}
-</chunk> 
-Please give a short succinct context to situate this chunk within the overall document for the purposes of improving search retrieval of the chunk. Answer only with the succinct context and nothing else."""
-
-            from openai import OpenAI
-            client = OpenAI(api_key=self.openai_api_key)
+            prompt = f"""
+            Documento: {chunk.document_title}
+            Contexto del documento: {doc_context}
+            Página: {chunk.page_number}
             
-            response = client.chat.completions.create(
+            Contenido del chunk:
+            {chunk.original_content}
+            
+            Genera un contexto breve (máximo 100 palabras) que ayude a entender este fragmento específico del documento.
+            El contexto debe incluir información sobre el tema general, el propósito del documento y el contexto específico de esta sección.
+            """
+            
+            response = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=150,
-                temperature=0.1
+                temperature=0.3
             )
             
-            context = response.choices[0].message.content.strip()
-            return context
+            return response.choices[0].message.content.strip()
             
         except Exception as e:
-            print(f"⚠️ Error generando contexto para chunk {chunk.chunk_id}: {e}")
-            # Fallback
-            return f"Document: {chunk.document_title} (Page {chunk.page_number}). "
+            print(f"⚠️ Error generando contexto: {e}")
+            return f"Contexto del documento '{chunk.document_title}', página {chunk.page_number}"
     
     def get_document_context(self, doc_id: str) -> str:
-        """Obtener contexto del documento completo"""
+        """Obtener contexto general del documento"""
         doc_info = self.documents.get(doc_id, {})
+        if not doc_info:
+            return "Documento desconocido"
         
-        # Buscar todos los chunks del documento
-        doc_chunks = [chunk for chunk in self.contextual_chunks if chunk.document_id == doc_id]
+        # Construir contexto básico
+        context_parts = []
+        if doc_info.get('title'):
+            context_parts.append(f"Título: {doc_info['title']}")
+        if doc_info.get('author'):
+            context_parts.append(f"Autor: {doc_info['author']}")
+        if doc_info.get('subject'):
+            context_parts.append(f"Tema: {doc_info['subject']}")
+        if doc_info.get('tags'):
+            context_parts.append(f"Etiquetas: {', '.join(doc_info['tags'])}")
         
-        # Crear resumen del documento
-        all_content = ' '.join([chunk.original_content for chunk in doc_chunks])
-        
-        # Limitar a 4000 tokens para el contexto
-        if len(all_content) > 16000:  # ~4000 tokens
-            all_content = all_content[:16000] + "..."
-        
-        return f"Title: {doc_info.get('title', 'Unknown')}. Content: {all_content}"
+        return " | ".join(context_parts) if context_parts else "Sin contexto disponible"
     
     def contextualize_all_chunks(self):
         """Contextualizar todos los chunks"""
-        print("🔄 Iniciando contextualización de chunks...")
+        print("🔄 Contextualizando chunks...")
         
         for i, chunk in enumerate(self.contextual_chunks):
             if i % 10 == 0:
-                print(f"📝 Procesando chunk {i+1}/{len(self.contextual_chunks)}")
+                print(f"  Procesando chunk {i+1}/{len(self.contextual_chunks)}")
             
             # Generar contexto
             context = self.generate_context_for_chunk(chunk)
             chunk.context_summary = context
             
             # Crear contenido contextualizado
-            chunk.contextualized_content = f"{context} {chunk.original_content}"
+            chunk.contextualized_content = f"""
+            Contexto: {context}
+            
+            Contenido:
+            {chunk.original_content}
+            """
         
-        print("✅ Contextualización completada")
+        print(f"✅ {len(self.contextual_chunks)} chunks contextualizados")
     
     def create_contextual_embeddings(self):
-        """Crear embeddings contextualizados"""
-        print("🧠 Creando embeddings contextualizados...")
-        
+        """Crear embeddings para el contenido contextualizado"""
         if not self.openai_api_key:
-            print("⚠️ No hay API key de OpenAI. Usando embeddings simulados.")
-            # Embeddings simulados para demo
-            self.chunk_embeddings = [
-                np.random.rand(1536).tolist() for _ in self.contextual_chunks
-            ]
+            print("⚠️ No hay API key de OpenAI, saltando embeddings")
             return
         
+        print("🔍 Creando embeddings contextuales...")
+        
         try:
-            self.chunk_embeddings = []
+            # Preparar textos para embedding
+            texts = [chunk.contextualized_content for chunk in self.contextual_chunks]
             
-            for i, chunk in enumerate(self.contextual_chunks):
-                if i % 10 == 0:
-                    print(f"🔢 Embedding chunk {i+1}/{len(self.contextual_chunks)}")
+            # Crear embeddings en lotes
+            batch_size = 10
+            all_embeddings = []
+            
+            for i in range(0, len(texts), batch_size):
+                batch_texts = texts[i:i+batch_size]
                 
-                from openai import OpenAI
-                client = OpenAI(api_key=self.openai_api_key)
-                
-                response = client.embeddings.create(
-                    input=chunk.contextualized_content,
+                response = openai.Embedding.create(
+                    input=batch_texts,
                     model="text-embedding-ada-002"
                 )
                 
-                embedding = response.data[0].embedding
-                chunk.embedding = embedding
-                self.chunk_embeddings.append(embedding)
+                batch_embeddings = [item['embedding'] for item in response['data']]
+                all_embeddings.extend(batch_embeddings)
+                
+                print(f"  Embeddings creados: {len(all_embeddings)}/{len(texts)}")
             
-            print("✅ Embeddings contextualizados creados")
+            # Asignar embeddings a chunks
+            for chunk, embedding in zip(self.contextual_chunks, all_embeddings):
+                chunk.embedding = embedding
+            
+            self.chunk_embeddings = all_embeddings
+            print(f"✅ {len(all_embeddings)} embeddings creados")
             
         except Exception as e:
             print(f"❌ Error creando embeddings: {e}")
     
     def create_contextual_bm25(self):
-        """Crear índice BM25 contextualizado"""
-        print("🔍 Creando índice BM25 contextualizado...")
+        """Crear índice BM25 para búsqueda contextual"""
+        print("📊 Creando índice BM25 contextual...")
         
-        # Usar contenido contextualizado para BM25
-        contextualized_texts = [chunk.contextualized_content for chunk in self.contextual_chunks]
-        
-        self.tfidf_vectorizer = TfidfVectorizer(
-            lowercase=True,
-            stop_words='english',
-            ngram_range=(1, 2),
-            max_features=10000
-        )
-        
-        self.tfidf_matrix = self.tfidf_vectorizer.fit_transform(contextualized_texts)
-        print("✅ Índice BM25 contextualizado creado")
+        try:
+            # Preparar textos para BM25
+            texts = [chunk.contextualized_content for chunk in self.contextual_chunks]
+            
+            # Crear vectorizador TF-IDF
+            self.tfidf_vectorizer = TfidfVectorizer(
+                max_features=10000,
+                stop_words='english',
+                ngram_range=(1, 2),
+                min_df=1,
+                max_df=0.9
+            )
+            
+            # Crear matriz TF-IDF
+            self.tfidf_matrix = self.tfidf_vectorizer.fit_transform(texts)
+            print(f"✅ Índice BM25 creado con {self.tfidf_matrix.shape[1]} características")
+            
+        except Exception as e:
+            print(f"❌ Error creando BM25: {e}")
     
     def search_contextual(self, query: str, limit: int = 20, use_reranking: bool = True) -> List[Dict[str, Any]]:
         """Búsqueda contextual combinando embeddings y BM25"""
-        print(f"🔍 Búsqueda contextual para: '{query}'")
+        print(f"🔍 Búsqueda contextual: '{query}'")
         
-        # 1. Búsqueda inicial con embeddings contextualizados
+        # Búsqueda por embeddings
         embedding_results = self.search_embeddings(query, limit=150)
         
-        # 2. Búsqueda con BM25 contextualizado
+        # Búsqueda por BM25
         bm25_results = self.search_bm25(query, limit=150)
         
-        # 3. Combinar resultados
+        # Combinar resultados
         combined_results = self.combine_results(embedding_results, bm25_results)
         
-        # 4. Reranking (opcional)
+        # Re-ranking si está habilitado
         if use_reranking and self.openai_api_key:
             combined_results = self.rerank_results(query, combined_results, limit)
-        else:
-            combined_results = combined_results[:limit]
         
-        return combined_results
+        return combined_results[:limit]
     
     def search_embeddings(self, query: str, limit: int = 150) -> List[Dict[str, Any]]:
-        """Búsqueda por similitud de embeddings contextualizados"""
+        """Búsqueda por similitud de embeddings"""
         if not self.chunk_embeddings:
             return []
         
-        # Crear embedding de la query
         try:
-            from openai import OpenAI
-            client = OpenAI(api_key=self.openai_api_key)
-            
-            query_embedding = client.embeddings.create(
-                input=query,
+            # Crear embedding de la consulta
+            query_embedding = openai.Embedding.create(
+                input=[query],
                 model="text-embedding-ada-002"
-            ).data[0].embedding
-        except:
-            # Fallback: embedding simulado
-            query_embedding = np.random.rand(1536).tolist()
-        
-        # Calcular similitudes
-        similarities = []
-        for i, chunk_embedding in enumerate(self.chunk_embeddings):
-            similarity = cosine_similarity(
-                [query_embedding], [chunk_embedding]
-            )[0][0]
-            similarities.append((i, similarity))
-        
-        # Ordenar por similitud
-        similarities.sort(key=lambda x: x[1], reverse=True)
-        
-        results = []
-        for idx, score in similarities[:limit]:
-            chunk = self.contextual_chunks[idx]
-            results.append({
-                'chunk': chunk,
-                'score': score,
-                'method': 'embedding'
-            })
-        
-        return results
+            )['data'][0]['embedding']
+            
+            # Calcular similitudes
+            similarities = []
+            for i, chunk_embedding in enumerate(self.chunk_embeddings):
+                similarity = cosine_similarity(
+                    [query_embedding], 
+                    [chunk_embedding]
+                )[0][0]
+                similarities.append((i, similarity))
+            
+            # Ordenar por similitud
+            similarities.sort(key=lambda x: x[1], reverse=True)
+            
+            # Crear resultados
+            results = []
+            for i, similarity in similarities[:limit]:
+                chunk = self.contextual_chunks[i]
+                results.append({
+                    'chunk_id': chunk.chunk_id,
+                    'document_title': chunk.document_title,
+                    'page_number': chunk.page_number,
+                    'content': chunk.original_content,
+                    'contextualized_content': chunk.contextualized_content,
+                    'context_summary': chunk.context_summary,
+                    'score': similarity,
+                    'method': 'embeddings'
+                })
+            
+            return results
+            
+        except Exception as e:
+            print(f"❌ Error en búsqueda por embeddings: {e}")
+            return []
     
     def search_bm25(self, query: str, limit: int = 150) -> List[Dict[str, Any]]:
-        """Búsqueda BM25 contextualizada"""
+        """Búsqueda por BM25"""
         if self.tfidf_matrix is None:
             return []
         
-        # Vectorizar query
-        query_vector = self.tfidf_vectorizer.transform([query])
-        
-        # Calcular similitudes
-        similarities = cosine_similarity(query_vector, self.tfidf_matrix).flatten()
-        
-        # Obtener top resultados
-        top_indices = similarities.argsort()[-limit:][::-1]
-        
-        results = []
-        for idx in top_indices:
-            if similarities[idx] > 0:
-                chunk = self.contextual_chunks[idx]
-                results.append({
-                    'chunk': chunk,
-                    'score': float(similarities[idx]),
-                    'method': 'bm25'
-                })
-        
-        return results
-    
-    def combine_results(self, embedding_results: List[Dict], bm25_results: List[Dict]) -> List[Dict[str, Any]]:
-        """Combinar resultados de embeddings y BM25 usando rank fusion"""
-        # Crear diccionario de scores combinados
-        combined_scores = defaultdict(lambda: {'embedding': 0, 'bm25': 0, 'chunk': None})
-        
-        # Procesar resultados de embeddings
-        for i, result in enumerate(embedding_results):
-            chunk_id = result['chunk'].chunk_id
-            combined_scores[chunk_id]['embedding'] = result['score']
-            combined_scores[chunk_id]['chunk'] = result['chunk']
-        
-        # Procesar resultados de BM25
-        for i, result in enumerate(bm25_results):
-            chunk_id = result['chunk'].chunk_id
-            combined_scores[chunk_id]['bm25'] = result['score']
-            if combined_scores[chunk_id]['chunk'] is None:
-                combined_scores[chunk_id]['chunk'] = result['chunk']
-        
-        # Calcular score combinado (promedio ponderado)
-        combined_results = []
-        for chunk_id, scores in combined_scores.items():
-            if scores['chunk']:
-                # Normalizar scores y combinar
-                combined_score = (scores['embedding'] * 0.6 + scores['bm25'] * 0.4)
-                combined_results.append({
-                    'chunk': scores['chunk'],
-                    'combined_score': combined_score,
-                    'embedding_score': scores['embedding'],
-                    'bm25_score': scores['bm25']
-                })
-        
-        # Ordenar por score combinado
-        combined_results.sort(key=lambda x: x['combined_score'], reverse=True)
-        
-        return combined_results
-    
-    def rerank_results(self, query: str, results: List[Dict], limit: int = 20) -> List[Dict[str, Any]]:
-        """Reranking de resultados usando modelo especializado"""
-        if not self.openai_api_key:
-            return results[:limit]
-        
-        print(f"🏆 Reranking {len(results)} resultados...")
-        
         try:
-            reranked_results = []
+            # Vectorizar consulta
+            query_vector = self.tfidf_vectorizer.transform([query])
             
-            for result in results:
-                chunk = result['chunk']
-                
-                # Prompt para reranking
-                rerank_prompt = f"""Query: {query}
-
-Document chunk: {chunk.contextualized_content}
-
-Rate the relevance of this document chunk to the query on a scale of 0-10, where:
-0 = Completely irrelevant
-5 = Somewhat relevant
-10 = Highly relevant
-
-Consider:
-- Does the chunk directly answer the query?
-- Is the information specific and accurate?
-- Is the context helpful for understanding?
-
-Respond with only the number (0-10):"""
-
-                from openai import OpenAI
-                client = OpenAI(api_key=self.openai_api_key)
-                
-                response = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=[{"role": "user", "content": rerank_prompt}],
-                    max_tokens=5,
-                    temperature=0.1
-                )
-                
-                try:
-                    rerank_score = float(response.choices[0].message.content.strip())
-                except:
-                    rerank_score = result['combined_score'] * 10  # Fallback
-                
-                result['rerank_score'] = rerank_score
-                reranked_results.append(result)
+            # Calcular similitudes
+            similarities = cosine_similarity(query_vector, self.tfidf_matrix)[0]
             
-            # Ordenar por rerank score
-            reranked_results.sort(key=lambda x: x['rerank_score'], reverse=True)
+            # Obtener índices ordenados
+            indices = similarities.argsort()[::-1]
             
-            print("✅ Reranking completado")
-            return reranked_results[:limit]
+            # Crear resultados
+            results = []
+            for i in indices[:limit]:
+                if similarities[i] > 0:
+                    chunk = self.contextual_chunks[i]
+                    results.append({
+                        'chunk_id': chunk.chunk_id,
+                        'document_title': chunk.document_title,
+                        'page_number': chunk.page_number,
+                        'content': chunk.original_content,
+                        'contextualized_content': chunk.contextualized_content,
+                        'context_summary': chunk.context_summary,
+                        'score': float(similarities[i]),
+                        'method': 'bm25'
+                    })
+            
+            return results
             
         except Exception as e:
-            print(f"⚠️ Error en reranking: {e}")
+            print(f"❌ Error en búsqueda BM25: {e}")
+            return []
+    
+    def combine_results(self, embedding_results: List[Dict], bm25_results: List[Dict]) -> List[Dict[str, Any]]:
+        """Combinar resultados de embeddings y BM25"""
+        # Crear diccionario de resultados combinados
+        combined = {}
+        
+        # Procesar resultados de embeddings
+        for result in embedding_results:
+            chunk_id = result['chunk_id']
+            if chunk_id not in combined:
+                combined[chunk_id] = result.copy()
+                combined[chunk_id]['embedding_score'] = result['score']
+                combined[chunk_id]['bm25_score'] = 0.0
+            else:
+                combined[chunk_id]['embedding_score'] = result['score']
+        
+        # Procesar resultados de BM25
+        for result in bm25_results:
+            chunk_id = result['chunk_id']
+            if chunk_id not in combined:
+                combined[chunk_id] = result.copy()
+                combined[chunk_id]['embedding_score'] = 0.0
+                combined[chunk_id]['bm25_score'] = result['score']
+            else:
+                combined[chunk_id]['bm25_score'] = result['score']
+        
+        # Calcular score combinado
+        for result in combined.values():
+            # Normalizar scores (0-1)
+            embedding_norm = min(result['embedding_score'], 1.0)
+            bm25_norm = min(result['bm25_score'], 1.0)
+            
+            # Score combinado (promedio ponderado)
+            result['combined_score'] = 0.6 * embedding_norm + 0.4 * bm25_norm
+            result['score'] = result['combined_score']
+        
+        # Ordenar por score combinado
+        combined_list = list(combined.values())
+        combined_list.sort(key=lambda x: x['combined_score'], reverse=True)
+        
+        return combined_list
+    
+    def rerank_results(self, query: str, results: List[Dict], limit: int = 20) -> List[Dict[str, Any]]:
+        """Re-ranking usando LLM"""
+        if not self.openai_api_key or not results:
+            return results[:limit]
+        
+        try:
+            print(f"🔄 Re-ranking {len(results)} resultados...")
+            
+            # Preparar prompt para re-ranking
+            prompt = f"""
+            Consulta: {query}
+            
+            Evalúa la relevancia de cada resultado (0-10) basándote en:
+            1. Relevancia directa a la consulta
+            2. Calidad del contexto
+            3. Completitud de la información
+            
+            Resultados:
+            """
+            
+            for i, result in enumerate(results[:50]):  # Limitar a 50 para el prompt
+                prompt += f"""
+            {i+1}. Documento: {result['document_title']}
+                Página: {result['page_number']}
+                Contexto: {result['context_summary']}
+                Contenido: {result['content'][:200]}...
+                Score actual: {result['score']:.3f}
+                """
+            
+            prompt += """
+            Proporciona solo una lista de números (1-50) ordenados por relevancia, separados por comas.
+            """
+            
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=100,
+                temperature=0.1
+            )
+            
+            # Parsear respuesta
+            try:
+                ranked_indices = [
+                    int(x.strip()) - 1 
+                    for x in response.choices[0].message.content.split(',')
+                    if x.strip().isdigit()
+                ]
+                
+                # Reordenar resultados
+                reranked_results = []
+                for idx in ranked_indices:
+                    if 0 <= idx < len(results):
+                        reranked_results.append(results[idx])
+                
+                # Añadir resultados no incluidos en el re-ranking
+                reranked_ids = {r['chunk_id'] for r in reranked_results}
+                for result in results:
+                    if result['chunk_id'] not in reranked_ids:
+                        reranked_results.append(result)
+                
+                print(f"✅ Re-ranking completado")
+                return reranked_results[:limit]
+                
+            except Exception as e:
+                print(f"⚠️ Error parseando re-ranking: {e}")
+                return results[:limit]
+                
+        except Exception as e:
+            print(f"❌ Error en re-ranking: {e}")
             return results[:limit]
     
     def save_contextualized_data(self, output_file: str = "data/contextual_chunks.json"):
-        """Guardar chunks contextualizados"""
+        """Guardar datos contextualizados"""
         try:
-            contextual_data = []
+            data = []
             for chunk in self.contextual_chunks:
-                contextual_data.append({
+                chunk_data = {
                     'chunk_id': chunk.chunk_id,
                     'document_id': chunk.document_id,
                     'document_title': chunk.document_title,
@@ -414,81 +462,81 @@ Respond with only the number (0-10):"""
                     'embedding': chunk.embedding,
                     'bm25_score': chunk.bm25_score,
                     'rerank_score': chunk.rerank_score
-                })
+                }
+                data.append(chunk_data)
             
             with open(output_file, 'w', encoding='utf-8') as f:
-                json.dump(contextual_data, f, ensure_ascii=False, indent=2)
+                json.dump(data, f, indent=2, ensure_ascii=False)
             
-            print(f"💾 Datos contextualizados guardados en {output_file}")
+            print(f"✅ Datos contextualizados guardados en {output_file}")
             
         except Exception as e:
             print(f"❌ Error guardando datos: {e}")
     
     def get_stats(self) -> Dict[str, Any]:
-        """Obtener estadísticas del sistema contextual"""
+        """Obtener estadísticas del sistema"""
         return {
+            'total_chunks': len(self.contextual_chunks),
             'total_documents': len(self.documents),
-            'total_contextual_chunks': len(self.contextual_chunks),
-            'has_embeddings': len(self.chunk_embeddings) > 0,
-            'has_bm25': self.tfidf_matrix is not None,
-            'has_openai': bool(self.openai_api_key),
-            'documents': [
-                {
-                    'title': doc.get('title', 'Sin título'),
-                    'pages': doc.get('pages', 0),
-                    'chunks': len([c for c in self.contextual_chunks if c.document_id == doc_id])
-                }
-                for doc_id, doc in self.documents.items()
-            ]
+            'chunks_with_embeddings': sum(1 for c in self.contextual_chunks if c.embedding is not None),
+            'chunks_with_context': sum(1 for c in self.contextual_chunks if c.context_summary),
+            'has_bm25_index': self.tfidf_matrix is not None,
+            'bm25_features': self.tfidf_matrix.shape[1] if self.tfidf_matrix is not None else 0
         }
 
+
 def main():
-    """Función principal para probar Contextual Retrieval"""
-    print("🚀 Iniciando Contextual Retrieval...")
+    """Función principal de demostración"""
+    print("🔍 Contextual Retrieval System")
+    print("=" * 50)
     
     # Inicializar sistema
-    cr = ContextualRetrieval()
+    retrieval = ContextualRetrieval()
     
     # Cargar datos
-    if not cr.load_data():
-        print("❌ Error cargando datos")
+    if not retrieval.load_data():
+        print("❌ No se pudieron cargar los datos")
         return
     
     # Contextualizar chunks
-    cr.contextualize_all_chunks()
+    retrieval.contextualize_all_chunks()
     
-    # Crear embeddings contextualizados
-    cr.create_contextual_embeddings()
+    # Crear embeddings
+    retrieval.create_contextual_embeddings()
     
-    # Crear BM25 contextualizado
-    cr.create_contextual_bm25()
+    # Crear BM25
+    retrieval.create_contextual_bm25()
     
     # Guardar datos
-    cr.save_contextualized_data()
+    retrieval.save_contextualized_data()
     
     # Mostrar estadísticas
-    stats = cr.get_stats()
-    print(f"\n📊 Estadísticas del sistema:")
-    print(f"   Documentos: {stats['total_documents']}")
-    print(f"   Chunks contextualizados: {stats['total_contextual_chunks']}")
-    print(f"   Embeddings: {'✅' if stats['has_embeddings'] else '❌'}")
-    print(f"   BM25: {'✅' if stats['has_bm25'] else '❌'}")
-    print(f"   OpenAI: {'✅' if stats['has_openai'] else '❌'}")
+    stats = retrieval.get_stats()
+    print(f"\n📊 Estadísticas:")
+    print(f"  Chunks totales: {stats['total_chunks']}")
+    print(f"  Documentos: {stats['total_documents']}")
+    print(f"  Chunks con embeddings: {stats['chunks_with_embeddings']}")
+    print(f"  Chunks con contexto: {stats['chunks_with_context']}")
+    print(f"  Índice BM25: {'Sí' if stats['has_bm25_index'] else 'No'}")
+    print(f"  Características BM25: {stats['bm25_features']}")
     
-    # Prueba de búsqueda
-    test_query = "corredor fantasma"
-    print(f"\n🔍 Probando búsqueda: '{test_query}'")
+    # Demostrar búsqueda
+    test_queries = [
+        "¿Qué es la inteligencia artificial?",
+        "Explica el machine learning",
+        "¿Cómo funciona el deep learning?"
+    ]
     
-    results = cr.search_contextual(test_query, limit=5, use_reranking=True)
-    
-    print(f"\n📋 Resultados encontrados: {len(results)}")
-    for i, result in enumerate(results[:3]):
-        chunk = result['chunk']
-        print(f"\n{i+1}. {chunk.document_title} (Página {chunk.page_number})")
-        print(f"   Score combinado: {result.get('combined_score', 0):.3f}")
-        print(f"   Score rerank: {result.get('rerank_score', 0):.1f}")
-        print(f"   Contexto: {chunk.context_summary[:100]}...")
-        print(f"   Contenido: {chunk.original_content[:200]}...")
+    print(f"\n🔍 Pruebas de búsqueda:")
+    for query in test_queries:
+        print(f"\nConsulta: {query}")
+        results = retrieval.search_contextual(query, limit=3)
+        
+        for i, result in enumerate(results, 1):
+            print(f"  {i}. {result['document_title']} (página {result['page_number']})")
+            print(f"     Score: {result['score']:.3f}")
+            print(f"     Contexto: {result['context_summary'][:100]}...")
+
 
 if __name__ == "__main__":
     main() 

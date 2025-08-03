@@ -98,239 +98,203 @@ class AssistantDemo:
             response = await self.agent.process_request(request)
             
             if response.success:
-                print(f"✅ Respuesta exitosa ({response.processing_time:.2f}s)")
+                print(f"✅ Respuesta generada en {response.processing_time:.2f}s")
                 print(f"📊 Confianza: {response.confidence_score:.1%}")
-                print(f"🔧 Tareas ejecutadas: {response.metadata.get('tasks_executed', 0)}")
-                print(f"📄 Resumen: {response.summary[:100]}...")
+                print(f"📄 Contenido: {response.content[:200]}...")
             else:
-                print(f"❌ Error: {response.error}")
+                print(f"❌ Error: {response.content}")
             
             print("-" * 40)
+            await asyncio.sleep(1)
     
     async def _demo_complex_workflows(self):
         """Demostrar flujos de trabajo complejos"""
         print("\n🔄 DEMOSTRACIÓN: Flujos de Trabajo Complejos")
-        print("-" * 50)
+        print("-" * 40)
         
         complex_queries = [
-            "Analiza el impacto de la inteligencia artificial en el mercado laboral, incluyendo estadísticas recientes, tendencias futuras y recomendaciones para profesionales",
-            "Crea un plan de marketing digital completo para una startup de tecnología, incluyendo análisis de competencia, estrategias de contenido y métricas de seguimiento",
-            "Investiga y compara las diferentes tecnologías de blockchain, sus aplicaciones prácticas, y el estado actual del mercado de criptomonedas"
+            "Investiga sobre el impacto de la IA en el sector financiero y crea un resumen ejecutivo",
+            "Analiza las tendencias de mercado en tecnología y genera recomendaciones de inversión",
+            "Crea un plan de marketing digital para una startup de e-commerce"
         ]
         
         for i, query in enumerate(complex_queries, 1):
-            print(f"\n🎯 Flujo Complejo {i}: {query[:80]}...")
-            print("🔄 Ejecutando flujo de trabajo con LangGraph...")
+            print(f"\n🔍 Consulta Compleja {i}: {query}")
+            print("⏳ Procesando con Sequential Thinking...")
             
-            request = AgentRequest(
-                query=query,
-                priority=PriorityLevel.HIGH
-            )
+            # Usar Sequential Thinking para consultas complejas
+            result = await self.agent.solve_with_sequential_thinking(query)
             
-            start_time = datetime.now()
-            response = await self.agent.process_request(request)
-            processing_time = (datetime.now() - start_time).total_seconds()
-            
-            if response.success:
-                print(f"✅ Flujo completado en {processing_time:.2f}s")
-                print(f"📊 Confianza: {response.confidence_score:.1%}")
-                print(f"🔧 Tareas ejecutadas: {response.metadata.get('tasks_executed', 0)}")
-                print(f"📚 Fuentes consultadas: {len(response.sources)}")
-                print(f"📄 Contenido generado: {len(response.content)} caracteres")
-                
-                # Mostrar estructura de tareas
-                if 'task_breakdown' in response.metadata:
-                    print("📋 Desglose de tareas:")
-                    for task in response.metadata['task_breakdown']:
-                        print(f"  • {task['type']}: {task['status']}")
+            if result['success']:
+                print(f"✅ Proceso completado en {result.get('duration', 0):.2f}s")
+                print(f"📊 Pasos completados: {result['completed_steps']}/{result['total_steps']}")
+                print(f"📄 Respuesta: {result['answer'][:200]}...")
             else:
-                print(f"❌ Error en flujo: {response.error}")
+                print(f"❌ Error: {result['answer']}")
             
-            print("-" * 50)
+            print("-" * 40)
+            await asyncio.sleep(2)
     
     async def _demo_rag_capabilities(self):
         """Demostrar capacidades RAG"""
         print("\n🔍 DEMOSTRACIÓN: Sistema RAG")
-        print("-" * 35)
+        print("-" * 40)
         
-        # Añadir conocimiento al sistema
+        # Añadir conocimiento al sistema RAG
+        print("📚 Añadiendo conocimiento al sistema RAG...")
+        
         knowledge_items = [
             {
-                "content": "La inteligencia artificial está transformando la industria de la salud con aplicaciones en diagnóstico, descubrimiento de fármacos y atención personalizada.",
-                "source": "Informe de McKinsey 2024",
-                "content_type": "text"
+                "title": "Inteligencia Artificial",
+                "content": "La IA es una rama de la informática que busca crear sistemas capaces de realizar tareas que normalmente requieren inteligencia humana."
             },
             {
-                "content": "El machine learning es una rama de la IA que permite a las computadoras aprender y mejorar automáticamente sin ser programadas explícitamente.",
-                "source": "Guía de Machine Learning",
-                "content_type": "text"
+                "title": "Machine Learning",
+                "content": "El aprendizaje automático es un subconjunto de la IA que permite a las computadoras aprender sin ser programadas explícitamente."
             },
             {
-                "content": "Las redes neuronales profundas han revolucionado el procesamiento de lenguaje natural, permitiendo sistemas como GPT y BERT.",
-                "source": "Investigación en NLP",
-                "content_type": "text"
+                "title": "Deep Learning",
+                "content": "El aprendizaje profundo utiliza redes neuronales artificiales con múltiples capas para procesar datos complejos."
             }
         ]
         
-        print("📚 Añadiendo conocimiento al sistema RAG...")
-        document_ids = await self.agent.rag_system.add_knowledge_base(knowledge_items)
-        print(f"✅ {len(document_ids)} documentos añadidos")
+        for item in knowledge_items:
+            await self.agent.rag_system.add_knowledge(
+                title=item["title"],
+                content=item["content"],
+                source="demo_knowledge"
+            )
         
-        # Consultar conocimiento
+        print(f"✅ {len(knowledge_items)} elementos de conocimiento añadidos")
+        
+        # Consultar el conocimiento RAG
         rag_queries = [
-            "¿Cómo está impactando la IA en la salud?",
-            "¿Qué es el machine learning y cómo funciona?",
-            "¿Cuáles son los avances recientes en procesamiento de lenguaje natural?"
+            "¿Qué es la inteligencia artificial?",
+            "Explica el machine learning",
+            "¿Cómo funciona el deep learning?"
         ]
         
         for i, query in enumerate(rag_queries, 1):
             print(f"\n🔍 Consulta RAG {i}: {query}")
+            print("⏳ Buscando en base de conocimiento...")
             
-            # Buscar en la base de conocimiento
-            search_results = await self.agent.rag_system.search(query, max_results=3)
-            print(f"📚 Encontrados {len(search_results)} documentos relevantes")
-            
-            # Generar respuesta aumentada
-            rag_response = await self.agent.rag_system.generate_answer(query)
-            
-            if rag_response.get('success'):
-                print(f"✅ Respuesta RAG generada")
-                print(f"📊 Confianza: {rag_response.get('confidence', 0):.1%}")
-                print(f"📄 Respuesta: {rag_response.get('answer', '')[:150]}...")
-            else:
-                print(f"❌ Error en RAG: {rag_response.get('error', 'Error desconocido')}")
-            
-            print("-" * 35)
-    
-    async def _demo_data_integration(self):
-        """Demostrar integración de datos"""
-        print("\n🔗 DEMOSTRACIÓN: Integración de Datos")
-        print("-" * 40)
-        
-        # Simular consultas que requieren datos externos
-        data_queries = [
-            "¿Cuál es el precio actual del Bitcoin y su tendencia en las últimas 24 horas?",
-            "Necesito información sobre el clima en Barcelona para el fin de semana",
-            "¿Cuáles son las últimas noticias sobre el mercado de tecnología?"
-        ]
-        
-        for i, query in enumerate(data_queries, 1):
-            print(f"\n📊 Consulta de Datos {i}: {query}")
-            print("🔗 Conectando a fuentes de datos externas...")
-            
-            request = AgentRequest(
-                query=query,
-                priority=PriorityLevel.MEDIUM
-            )
-            
+            request = AgentRequest(query=query, priority=PriorityLevel.HIGH)
             response = await self.agent.process_request(request)
             
             if response.success:
-                print(f"✅ Datos obtenidos exitosamente")
-                print(f"📊 Fuentes consultadas: {len(response.sources)}")
-                print(f"⏱️  Tiempo de respuesta: {response.processing_time:.2f}s")
-                
-                # Mostrar fuentes de datos
-                if response.sources:
-                    print("📚 Fuentes de datos:")
-                    for source in response.sources[:3]:  # Mostrar solo las primeras 3
-                        print(f"  • {source.get('name', 'Fuente desconocida')}: {source.get('url', 'N/A')}")
+                print(f"✅ Respuesta RAG generada en {response.processing_time:.2f}s")
+                print(f"📚 Fuentes encontradas: {len(response.sources)}")
+                print(f"📄 Contenido: {response.content[:200]}...")
             else:
-                print(f"❌ Error obteniendo datos: {response.error}")
+                print(f"❌ Error: {response.content}")
             
             print("-" * 40)
+            await asyncio.sleep(1)
+    
+    async def _demo_data_integration(self):
+        """Demostrar integración de datos"""
+        print("\n🔌 DEMOSTRACIÓN: Integración de Datos")
+        print("-" * 40)
+        
+        data_queries = [
+            "¿Cuál es el clima actual en Barcelona?",
+            "Dame las últimas noticias sobre tecnología",
+            "¿Cuál es el precio actual de Bitcoin?"
+        ]
+        
+        for i, query in enumerate(data_queries, 1):
+            print(f"\n🔍 Consulta de Datos {i}: {query}")
+            print("⏳ Conectando con APIs externas...")
+            
+            request = AgentRequest(query=query, priority=PriorityLevel.MEDIUM)
+            response = await self.agent.process_request(request)
+            
+            if response.success:
+                print(f"✅ Datos obtenidos en {response.processing_time:.2f}s")
+                print(f"📊 Confianza: {response.confidence_score:.1%}")
+                print(f"📄 Contenido: {response.content[:200]}...")
+            else:
+                print(f"❌ Error: {response.content}")
+            
+            print("-" * 40)
+            await asyncio.sleep(2)
     
     async def _demo_task_coordination(self):
         """Demostrar coordinación de tareas"""
         print("\n🎯 DEMOSTRACIÓN: Coordinación de Tareas")
-        print("-" * 45)
+        print("-" * 40)
         
-        # Consulta que requiere múltiples tareas coordinadas
-        complex_query = """
-        Necesito un análisis completo del mercado de vehículos eléctricos que incluya:
-        1. Estadísticas actuales de ventas
-        2. Principales competidores y sus estrategias
-        3. Tendencias tecnológicas emergentes
-        4. Análisis de regulaciones gubernamentales
-        5. Predicciones de mercado para los próximos 5 años
-        6. Recomendaciones para inversores
+        coordination_query = """
+        Necesito que hagas lo siguiente:
+        1. Investiga sobre las tendencias de IA en 2024
+        2. Analiza el impacto en el mercado laboral
+        3. Crea un resumen ejecutivo
+        4. Sugiere acciones recomendadas
         """
         
-        print(f"🎯 Consulta Compleja: {complex_query[:100]}...")
-        print("🔄 Coordinando múltiples tareas con LangGraph...")
+        print(f"🔍 Tarea Compleja: {coordination_query.strip()}")
+        print("⏳ Coordinando múltiples agentes...")
         
         request = AgentRequest(
-            query=complex_query,
+            query=coordination_query,
             priority=PriorityLevel.HIGH
         )
         
-        start_time = datetime.now()
         response = await self.agent.process_request(request)
-        processing_time = (datetime.now() - start_time).total_seconds()
         
         if response.success:
-            print(f"✅ Análisis completado en {processing_time:.2f}s")
-            print(f"📊 Confianza general: {response.confidence_score:.1%}")
-            print(f"🔧 Tareas coordinadas: {response.metadata.get('tasks_executed', 0)}")
-            
-            # Mostrar estructura del análisis
-            if 'analysis_structure' in response.metadata:
-                print("📋 Estructura del análisis:")
-                for section in response.metadata['analysis_structure']:
-                    print(f"  • {section['title']}: {section['status']}")
-            
-            print(f"📄 Contenido generado: {len(response.content)} caracteres")
-            print(f"📚 Fuentes consultadas: {len(response.sources)}")
+            print(f"✅ Coordinación completada en {response.processing_time:.2f}s")
+            print(f"📊 Tareas ejecutadas: {response.meta_data.get('tasks_executed', 0)}")
+            print(f"📄 Resultado: {response.content[:300]}...")
         else:
-            print(f"❌ Error en coordinación: {response.error}")
+            print(f"❌ Error: {response.content}")
         
-        print("-" * 45)
+        print("-" * 40)
     
     async def _show_final_stats(self):
         """Mostrar estadísticas finales"""
         print("\n📊 ESTADÍSTICAS FINALES")
-        print("=" * 30)
+        print("=" * 60)
         
-        try:
-            # Obtener estado del sistema
+        if self.agent:
             status = await self.agent.get_status()
             
-            print(f"🤖 ID del Agente: {self.agent.agent_id}")
-            print(f"⏰ Tiempo activo: {self.agent.get_uptime():.2f} segundos")
-            print(f"📊 Estado: {status.status}")
-            print(f"🔧 Tareas activas: {len(self.agent.active_tasks)}")
-            print(f"✅ Tareas completadas: {len(self.agent.completed_tasks)}")
-            print(f"❌ Tareas fallidas: {len(self.agent.failed_tasks)}")
+            print(f"🆔 ID del Agente: {status.system_id}")
+            print(f"⏰ Tiempo de Ejecución: {status.system_uptime:.2f}s")
+            print(f"📈 Total de Tareas: {status.total_tasks}")
+            print(f"✅ Tasa de Éxito: {status.success_rate:.1%}")
+            print(f"⚡ Tiempo Promedio: {status.average_response_time:.2f}s")
+            print(f"💾 Uso de Memoria: {status.memory_usage:.1f}MB")
+            print(f"🖥️ Uso de CPU: {status.cpu_usage:.1f}%")
             
-            # Estadísticas RAG
-            rag_stats = await self.agent.rag_system.get_statistics()
-            print(f"📚 Documentos en RAG: {rag_stats.get('total_documents', 0)}")
-            print(f"🔍 Consultas RAG: {rag_stats.get('total_queries', 0)}")
-            
-            # Información del sistema
-            system_info = self.agent.get_system_info()
-            print(f"💾 Memoria utilizada: {system_info.get('memory_usage', 'N/A')}")
-            print(f"🖥️  CPU: {system_info.get('cpu_usage', 'N/A')}")
-            
-        except Exception as e:
-            print(f"❌ Error obteniendo estadísticas: {e}")
+            print(f"\n🤖 Agentes Activos:")
+            for agent_status in status.agents_status:
+                print(f"  • {agent_status.agent_type.value}: {agent_status.status}")
+                print(f"    - Tareas Completadas: {agent_status.completed_tasks}")
+                print(f"    - Tareas Fallidas: {agent_status.failed_tasks}")
         
-        print("=" * 30)
+        print("\n🎉 ¡Demostración completada exitosamente!")
     
     async def _cleanup(self):
         """Limpiar recursos"""
         if self.agent:
             print("\n🧹 Limpiando recursos...")
             await self.agent.stop()
-            print("✅ Limpieza completada")
+            print("✅ Recursos liberados")
 
 
 async def main():
     """Función principal"""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="🤖 Demostración del Asistente de IA")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Modo verbose")
+    
+    args = parser.parse_args()
+    
     demo = AssistantDemo()
     await demo.start_demo()
 
 
 if __name__ == "__main__":
-    print("🚀 Iniciando Asistente de IA Multifuncional...")
     asyncio.run(main()) 

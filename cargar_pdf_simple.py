@@ -104,7 +104,7 @@ class SimplePDFLoader:
                 return []
     
     def chunk_text(self, text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
-        """Dividir texto en fragmentos"""
+        """Dividir texto en fragmentos con superposición"""
         if len(text) <= chunk_size:
             return [text]
         
@@ -114,17 +114,18 @@ class SimplePDFLoader:
         while start < len(text):
             end = start + chunk_size
             
-            # Buscar un buen punto de corte
+            # Si no es el último chunk, intentar cortar en un espacio
             if end < len(text):
-                for i in range(end, max(start + chunk_size - 100, start), -1):
-                    if text[i] in '.!?\n':
-                        end = i + 1
-                        break
+                # Buscar el último espacio antes del límite
+                last_space = text.rfind(' ', start, end)
+                if last_space > start:
+                    end = last_space
             
             chunk = text[start:end].strip()
             if chunk:
                 chunks.append(chunk)
             
+            # Mover al siguiente chunk con superposición
             start = end - overlap
             if start >= len(text):
                 break
@@ -134,81 +135,87 @@ class SimplePDFLoader:
     def load_pdf(self, pdf_path: Path, tags: List[str] = None) -> bool:
         """Cargar un PDF a la base de datos"""
         try:
-            print(f"📄 Procesando: {pdf_path.name}")
-            
             if not pdf_path.exists():
                 print(f"❌ Archivo no encontrado: {pdf_path}")
                 return False
             
-            # Información del archivo
-            file_size = pdf_path.stat().st_size
-            file_size_mb = file_size / (1024 * 1024)
+            # Verificar si ya está cargado
+            pdf_name = pdf_path.name
+            for doc_id, doc in self.documents.items():
+                if doc['filename'] == pdf_name:
+                    print(f"⚠️ PDF ya cargado: {pdf_name}")
+                    return True
             
-            print(f"📊 Tamaño: {file_size_mb:.2f} MB")
+            print(f"📄 Cargando PDF: {pdf_name}")
             
             # Extraer texto
             pages_text = self.extract_text_from_pdf(pdf_path)
             if not pages_text:
-                print("❌ No se pudo extraer texto")
+                print(f"❌ No se pudo extraer texto del PDF: {pdf_name}")
                 return False
             
             # Crear documento
             doc_id = str(uuid.uuid4())
             document = {
                 'id': doc_id,
-                'filename': pdf_path.name,
+                'filename': pdf_name,
                 'title': pdf_path.stem,
+                'author': 'Desconocido',
+                'subject': '',
                 'pages': len(pages_text),
-                'size_bytes': file_size,
+                'size_bytes': pdf_path.stat().st_size,
                 'upload_date': datetime.now().isoformat(),
+                'content_type': 'pdf',
                 'tags': tags or [],
-                'total_chunks': 0
+                'metadata': {
+                    'source_path': str(pdf_path),
+                    'extraction_method': 'PyMuPDF/PyPDF2'
+                }
             }
             
-            # Procesar páginas
+            # Dividir en chunks y guardar
             total_chunks = 0
-            for page_num, page_text in enumerate(pages_text):
+            for page_num, page_text in enumerate(pages_text, 1):
                 if not page_text.strip():
                     continue
                 
-                # Dividir en fragmentos
                 chunks = self.chunk_text(page_text)
-                
-                for chunk_index, chunk_text in enumerate(chunks):
-                    chunk_id = str(uuid.uuid4())
-                    chunk = {
+                for chunk_num, chunk_text in enumerate(chunks, 1):
+                    chunk_id = f"{doc_id}_page_{page_num}_chunk_{chunk_num}"
+                    
+                    chunk_data = {
                         'id': chunk_id,
                         'document_id': doc_id,
                         'content': chunk_text,
-                        'page_number': page_num + 1,
-                        'chunk_index': chunk_index,
+                        'page_number': page_num,
+                        'chunk_index': chunk_num,
+                        'start_char': 0,  # Simplificado
+                        'end_char': len(chunk_text),
                         'metadata': {
-                            'document_title': document['title'],
-                            'page_number': page_num + 1,
-                            'chunk_size': len(chunk_text)
+                            'chunk_size': len(chunk_text),
+                            'extraction_method': 'simple'
                         }
                     }
                     
-                    self.chunks[chunk_id] = chunk
+                    self.chunks[chunk_id] = chunk_data
                     total_chunks += 1
             
-            document['total_chunks'] = total_chunks
+            # Guardar documento
             self.documents[doc_id] = document
             
-            # Guardar datos
+            # Guardar a archivos
             self._save_json(self.documents_file, self.documents)
             self._save_json(self.chunks_file, self.chunks)
             
-            print(f"✅ Documento cargado exitosamente:")
-            print(f"   📄 Título: {document['title']}")
-            print(f"   📊 Páginas: {document['pages']}")
+            print(f"✅ PDF cargado exitosamente: {pdf_name}")
+            print(f"   📄 Páginas: {len(pages_text)}")
             print(f"   🧩 Fragmentos: {total_chunks}")
-            print(f"   🏷️  Tags: {', '.join(document['tags']) if document['tags'] else 'Ninguno'}")
+            print(f"   📊 Tamaño: {pdf_path.stat().st_size / 1024:.1f} KB")
             
             return True
             
         except Exception as e:
-            print(f"❌ Error cargando documento: {e}")
+            print(f"❌ Error cargando PDF {pdf_path}: {e}")
             return False
     
     def load_all_pdfs_in_directory(self, directory_path: Path, tags: List[str] = None) -> int:
@@ -219,20 +226,21 @@ class SimplePDFLoader:
         
         pdf_files = list(directory_path.glob("*.pdf"))
         if not pdf_files:
-            print(f"📁 No se encontraron PDFs en: {directory_path}")
+            print(f"⚠️ No se encontraron PDFs en: {directory_path}")
             return 0
         
-        print(f"📁 Encontrados {len(pdf_files)} archivos PDF")
+        print(f"📁 Encontrados {len(pdf_files)} PDFs en {directory_path}")
         
         loaded_count = 0
         for pdf_file in pdf_files:
             if self.load_pdf(pdf_file, tags):
                 loaded_count += 1
         
+        print(f"✅ Cargados {loaded_count}/{len(pdf_files)} PDFs")
         return loaded_count
     
     def search_documents(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
-        """Buscar en los documentos"""
+        """Buscar en los documentos cargados"""
         query_lower = query.lower()
         results = []
         
@@ -240,118 +248,122 @@ class SimplePDFLoader:
             if query_lower in chunk['content'].lower():
                 doc = self.documents.get(chunk['document_id'])
                 if doc:
+                    relevance = chunk['content'].lower().count(query_lower)
                     results.append({
-                        'chunk_id': chunk_id,
                         'document_title': doc['title'],
                         'page_number': chunk['page_number'],
-                        'content': chunk['content'][:200] + "..." if len(chunk['content']) > 200 else chunk['content'],
-                        'relevance': chunk['content'].lower().count(query_lower)
+                        'content': chunk['content'],
+                        'relevance_score': relevance,
+                        'source': 'pdf_database'
                     })
         
         # Ordenar por relevancia
-        results.sort(key=lambda x: x['relevance'], reverse=True)
+        results.sort(key=lambda x: x['relevance_score'], reverse=True)
         return results[:limit]
     
     def get_statistics(self) -> Dict[str, Any]:
-        """Obtener estadísticas"""
+        """Obtener estadísticas de la base de datos"""
         total_docs = len(self.documents)
         total_chunks = len(self.chunks)
-        total_pages = sum(doc['pages'] for doc in self.documents.values())
-        total_size_mb = sum(doc['size_bytes'] for doc in self.documents.values()) / (1024 * 1024)
+        
+        # Calcular estadísticas por documento
+        doc_stats = []
+        for doc_id, doc in self.documents.items():
+            doc_chunks = [c for c in self.chunks.values() if c['document_id'] == doc_id]
+            doc_stats.append({
+                'title': doc['title'],
+                'pages': doc['pages'],
+                'chunks': len(doc_chunks),
+                'size_kb': doc['size_bytes'] / 1024
+            })
         
         return {
             'total_documents': total_docs,
             'total_chunks': total_chunks,
-            'total_pages': total_pages,
-            'total_size_mb': total_size_mb,
-            'documents': [
-                {
-                    'title': doc['title'],
-                    'pages': doc['pages'],
-                    'chunks': doc['total_chunks'],
-                    'size_mb': doc['size_bytes'] / (1024 * 1024),
-                    'upload_date': doc['upload_date']
-                }
-                for doc in self.documents.values()
-            ]
+            'average_chunks_per_doc': total_chunks / total_docs if total_docs > 0 else 0,
+            'documents': doc_stats
         }
     
     def list_documents(self) -> List[Dict[str, Any]]:
-        """Listar documentos"""
+        """Listar documentos disponibles"""
         return [
             {
+                'id': doc_id,
                 'title': doc['title'],
+                'filename': doc['filename'],
                 'pages': doc['pages'],
-                'chunks': doc['total_chunks'],
-                'size_mb': doc['size_bytes'] / (1024 * 1024),
-                'tags': doc['tags']
+                'upload_date': doc['upload_date'],
+                'tags': doc.get('tags', [])
             }
-            for doc in self.documents.values()
+            for doc_id, doc in self.documents.items()
         ]
 
 
 def main():
     """Función principal"""
-    print("📄 CARGADOR SIMPLE DE PDFs")
-    print("=" * 40)
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="📄 Cargador Simple de PDFs")
+    parser.add_argument("--file", "-f", help="Cargar un PDF específico")
+    parser.add_argument("--directory", "-d", help="Cargar todos los PDFs de un directorio")
+    parser.add_argument("--search", "-s", help="Buscar en documentos cargados")
+    parser.add_argument("--list", "-l", action="store_true", help="Listar documentos")
+    parser.add_argument("--stats", action="store_true", help="Mostrar estadísticas")
+    parser.add_argument("--tags", nargs="+", help="Etiquetas para los documentos")
+    
+    args = parser.parse_args()
     
     loader = SimplePDFLoader()
     
-    # Mostrar estadísticas iniciales
-    stats = loader.get_statistics()
-    print(f"📊 Estado inicial: {stats['total_documents']} documentos, {stats['total_chunks']} fragmentos")
-    
-    # Buscar PDFs en el directorio de uploads
-    pdf_files = list(loader.uploads_dir.glob("*.pdf"))
-    
-    if pdf_files:
-        print(f"\n📁 Encontrados {len(pdf_files)} archivos PDF:")
-        for pdf_file in pdf_files:
-            print(f"   📄 {pdf_file.name}")
-        
-        # Preguntar si cargar
-        print(f"\n¿Deseas cargar estos archivos? (s/n): ", end="")
-        response = input().strip().lower()
-        
-        if response in ['s', 'si', 'sí', 'y', 'yes']:
-            print(f"\n📄 Cargando archivos...")
-            loaded_count = loader.load_all_pdfs_in_directory(loader.uploads_dir, tags=['cargado_automaticamente'])
-            print(f"✅ {loaded_count} documentos cargados exitosamente")
+    if args.file:
+        pdf_path = Path(args.file)
+        if loader.load_pdf(pdf_path, args.tags):
+            print("✅ PDF cargado exitosamente")
         else:
-            print("❌ Carga cancelada")
+            print("❌ Error cargando PDF")
+    
+    elif args.directory:
+        dir_path = Path(args.directory)
+        count = loader.load_all_pdfs_in_directory(dir_path, args.tags)
+        print(f"✅ Cargados {count} PDFs")
+    
+    elif args.search:
+        results = loader.search_documents(args.search)
+        print(f"\n🔍 Resultados para '{args.search}':")
+        for i, result in enumerate(results, 1):
+            print(f"\n{i}. {result['document_title']} (página {result['page_number']})")
+            print(f"   Relevancia: {result['relevance_score']}")
+            print(f"   Contenido: {result['content'][:200]}...")
+    
+    elif args.list:
+        documents = loader.list_documents()
+        print(f"\n📚 Documentos disponibles ({len(documents)}):")
+        for doc in documents:
+            print(f"  • {doc['title']} ({doc['filename']})")
+            print(f"    Páginas: {doc['pages']}, Fecha: {doc['upload_date']}")
+            if doc['tags']:
+                print(f"    Etiquetas: {', '.join(doc['tags'])}")
+    
+    elif args.stats:
+        stats = loader.get_statistics()
+        print(f"\n📊 Estadísticas:")
+        print(f"  Documentos totales: {stats['total_documents']}")
+        print(f"  Fragmentos totales: {stats['total_chunks']}")
+        print(f"  Promedio fragmentos/doc: {stats['average_chunks_per_doc']:.1f}")
+        
+        if stats['documents']:
+            print(f"\n📄 Documentos:")
+            for doc in stats['documents']:
+                print(f"  • {doc['title']}: {doc['pages']} páginas, {doc['chunks']} fragmentos, {doc['size_kb']:.1f} KB")
+    
     else:
-        print(f"\n📁 No se encontraron archivos PDF en {loader.uploads_dir}")
-        print(f"💡 Coloca archivos PDF en el directorio para cargarlos")
-    
-    # Mostrar estadísticas finales
-    stats = loader.get_statistics()
-    print(f"\n📊 Estado final:")
-    print(f"   📄 Documentos: {stats['total_documents']}")
-    print(f"   🧩 Fragmentos: {stats['total_chunks']}")
-    print(f"   📊 Páginas: {stats['total_pages']}")
-    print(f"   💾 Tamaño total: {stats['total_size_mb']:.2f} MB")
-    
-    if stats['documents']:
-        print(f"\n📚 Documentos cargados:")
-        for i, doc in enumerate(stats['documents'], 1):
-            print(f"   {i}. {doc['title']}")
-            print(f"      📊 Páginas: {doc['pages']}, Fragmentos: {doc['chunks']}")
-            print(f"      💾 Tamaño: {doc['size_mb']:.2f} MB")
-    
-    # Demostrar búsqueda
-    if stats['total_chunks'] > 0:
-        print(f"\n🔍 Probando búsqueda...")
-        results = loader.search_documents("documento", limit=3)
-        if results:
-            print(f"📄 Encontrados {len(results)} resultados:")
-            for i, result in enumerate(results, 1):
-                print(f"   {i}. {result['document_title']} (página {result['page_number']})")
-                print(f"      {result['content']}")
-                print()
-        else:
-            print("❌ No se encontraron resultados")
-    
-    print(f"\n✅ Proceso completado. Los documentos están listos para ser usados por el asistente de IA.")
+        print("📄 Cargador Simple de PDFs")
+        print("Uso:")
+        print("  python cargar_pdf_simple.py --file documento.pdf")
+        print("  python cargar_pdf_simple.py --directory ./pdfs")
+        print("  python cargar_pdf_simple.py --search 'término'")
+        print("  python cargar_pdf_simple.py --list")
+        print("  python cargar_pdf_simple.py --stats")
 
 
 if __name__ == "__main__":

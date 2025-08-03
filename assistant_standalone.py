@@ -103,14 +103,14 @@ class StandaloneAssistant:
     async def stop(self):
         """Detener el asistente"""
         self.is_running = False
-        print(f"{Colors.WARNING}🛑 Asistente detenido correctamente{Colors.ENDC}")
+        print(f"{Colors.OKGREEN}🛑 Asistente detenido correctamente{Colors.ENDC}")
     
     async def process_request(self, request: AgentRequest) -> AgentResponse:
         """Procesar una petición"""
         start_time = time.time()
         
         try:
-            print(f"{Colors.OKBLUE}📝 Procesando: {request.query}{Colors.ENDC}")
+            print(f"{Colors.OKCYAN}📝 Procesando: {request.query}{Colors.ENDC}")
             
             # Simular procesamiento
             await asyncio.sleep(0.5)
@@ -122,7 +122,7 @@ class StandaloneAssistant:
             
             # Guardar en historial
             self.conversation_history.append({
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(),
                 "query": request.query,
                 "response": response_content,
                 "processing_time": processing_time
@@ -132,14 +132,13 @@ class StandaloneAssistant:
                 success=True,
                 content=response_content,
                 summary=f"Respuesta generada para: {request.query[:50]}...",
-                confidence_score=0.85,
+                confidence_score=0.9,
                 processing_time=processing_time,
                 sources=[],
                 meta_data={
                     "agent_id": self.agent_id,
                     "tasks_executed": 1,
-                    "model_used": "standalone_assistant",
-                    "priority": request.priority.value
+                    "model_used": "standalone_assistant"
                 }
             )
             
@@ -157,213 +156,206 @@ class StandaloneAssistant:
         
         # Respuestas predefinidas para diferentes tipos de consultas
         if "hola" in query_lower or "cómo estás" in query_lower:
-            return f"""¡Hola! Soy tu {self.config['agent_name']}. 
-
-Estoy funcionando perfectamente y listo para ayudarte con cualquier tarea. 
+            return """¡Hola! Soy tu asistente de IA independiente. Estoy funcionando perfectamente y listo para ayudarte con cualquier tarea.
 
 🤖 **Mis capacidades incluyen:**
-• Procesamiento de lenguaje natural
-• Análisis de datos y estadísticas
-• Generación de contenido
-• Resolución de problemas complejos
-• Integración con APIs externas
+• Procesamiento de consultas en lenguaje natural
+• Análisis de información y datos
+• Generación de contenido y respuestas
+• Cálculos matemáticos básicos
+• Recomendaciones y sugerencias
+• Organización y planificación
 
 ¿En qué puedo asistirte hoy?"""
         
         elif "clima" in query_lower or "tiempo" in query_lower:
-            return """🌤️ **Información del Clima**
+            return """🌤️ **Información sobre el Clima**
 
-Para obtener información del clima en tiempo real, necesitaría conectarme a APIs como:
-• OpenWeather API
-• WeatherAPI
-• AccuWeather API
+Actualmente no tengo acceso a datos meteorológicos en tiempo real, pero puedo ayudarte con:
 
-**En una versión completa podría:**
-• Mostrar temperatura actual y pronóstico
-• Información de humedad y viento
-• Alertas meteorológicas
+📊 **Información general sobre el clima:**
+• Explicaciones de fenómenos meteorológicos
+• Consejos para diferentes tipos de clima
+• Información sobre estaciones del año
+• Recomendaciones de vestimenta según el clima
+
+🔗 **Para datos en tiempo real:**
+En una versión completa con APIs configuradas, podría proporcionarte:
+• Temperatura actual y pronósticos
+• Condiciones meteorológicas específicas
+• Alertas de clima
 • Recomendaciones de actividades según el clima
 
-¿Te gustaría que simule una consulta del clima para una ciudad específica?"""
+¿Te gustaría información general sobre algún aspecto específico del clima?"""
         
-        elif "noticias" in query_lower:
-            return """📰 **Sistema de Noticias**
+        elif "noticias" in query_lower or "actualidad" in query_lower:
+            return """📰 **Información sobre Noticias y Actualidad**
 
-Para obtener las últimas noticias, necesitaría conectarme a APIs como:
-• NewsAPI
-• GNews API
-• Reuters API
+No tengo acceso directo a noticias en tiempo real, pero puedo ayudarte con:
 
-**En una versión completa podría:**
-• Buscar noticias por categoría o tema
-• Resumir artículos automáticamente
-• Analizar sentimiento de las noticias
-• Crear resúmenes ejecutivos
+📊 **Análisis de tendencias:**
+• Explicaciones de eventos históricos
+• Contexto sobre temas de actualidad
+• Análisis de tendencias tecnológicas
+• Información sobre sectores económicos
 
-¿Sobre qué tema te gustaría ver noticias?"""
+🔍 **Temas que puedo analizar:**
+• Tecnología e innovación
+• Economía y finanzas
+• Ciencia y salud
+• Educación y desarrollo
+• Sostenibilidad y medio ambiente
+
+💡 **Para noticias en tiempo real:**
+En una versión completa, podría conectarme a APIs de noticias para proporcionarte las últimas actualizaciones sobre cualquier tema.
+
+¿Hay algún tema específico sobre el que te gustaría información?"""
         
-        elif "calcula" in query_lower or "matemática" in query_lower or "suma" in query_lower:
-            return """🧮 **Sistema de Cálculos**
+        elif "matemáticas" in query_lower or "calcular" in query_lower or "suma" in query_lower:
+            return """🧮 **Asistencia Matemática**
 
-Tengo capacidades de cálculo avanzadas integradas:
+Puedo ayudarte con cálculos matemáticos básicos y análisis numérico:
 
-**Operaciones básicas:**
+📊 **Operaciones que puedo realizar:**
 • Suma, resta, multiplicación, división
-• Potencias y raíces
-• Logaritmos y trigonometría
+• Porcentajes y proporciones
+• Cálculos de área y volumen
+• Conversiones de unidades
+• Análisis estadístico básico
 
-**Análisis estadístico:**
-• Media, mediana, moda
-• Desviación estándar
-• Correlaciones
-
-**Ejemplos de uso:**
+💡 **Ejemplos de consultas:**
 • "Calcula 25 + 37"
-• "¿Cuál es la raíz cuadrada de 144?"
-• "Calcula el promedio de [10, 20, 30, 40]"
+• "¿Cuál es el 15% de 200?"
+• "Convierte 50 millas a kilómetros"
+• "Calcula el área de un círculo con radio 5"
 
-¿Qué cálculo te gustaría que realice?"""
-        
-        elif "análisis" in query_lower or "investiga" in query_lower or "investiga" in query_lower:
-            return """🔍 **Sistema de Análisis e Investigación**
-
-Puedo realizar análisis complejos y investigaciones detalladas:
-
-**Tipos de análisis:**
-• Análisis de mercado y competencia
-• Investigación de tendencias
-• Análisis de datos financieros
-• Estudios de factibilidad
-
-**Capacidades:**
-• Recopilación de datos de múltiples fuentes
+🔢 **Para cálculos complejos:**
+En una versión completa, podría manejar:
+• Ecuaciones algebraicas
+• Cálculos financieros
 • Análisis estadístico avanzado
-• Generación de reportes ejecutivos
-• Visualización de datos
+• Gráficos y visualizaciones
 
-**Ejemplos:**
-• "Analiza el mercado de criptomonedas"
-• "Investiga las tendencias de IA en 2024"
-• "Estudia la viabilidad de un proyecto"
-
-¿Qué tipo de análisis necesitas?"""
+¿Qué cálculo específico necesitas realizar?"""
         
-        elif "ayuda" in query_lower or "qué puedes hacer" in query_lower or "capacidades" in query_lower:
-            return f"""🤖 **{self.config['agent_name']} - Capacidades Completas**
+        elif "ayuda" in query_lower or "qué puedes hacer" in query_lower:
+            return """🤖 **¡Con gusto te explico mis capacidades!**
 
-¡Con gusto te explico todo lo que puedo hacer!
+Como **Asistente de IA Independiente**, puedo ayudarte con:
 
-## 🧠 **Procesamiento Inteligente**
-• **Comprensión de lenguaje natural** - Entiendo consultas complejas
-• **Descomposición automática** - Divido tareas complejas en pasos simples
-• **Razonamiento multi-paso** - Ejecuto flujos de trabajo complejos
-• **Memoria contextual** - Recuerdo conversaciones previas
+📝 **Procesamiento de Consultas:**
+• Entiendo consultas complejas en lenguaje natural
+• Descompongo tareas en pasos manejables
+• Proporciono respuestas contextuales y útiles
 
-## 🔄 **Arquitectura Avanzada**
-• **Coordinación de tareas** - Uso LangGraph para flujos inteligentes
-• **Agentes especializados** - Diferentes agentes para diferentes tareas
-• **Ejecución paralela** - Proceso múltiples tareas simultáneamente
-• **Gestión de estado** - Mantengo consistencia en todo el proceso
+🔍 **Análisis de Información:**
+• Explico conceptos y definiciones
+• Analizo datos y tendencias
+• Creo resúmenes y síntesis
+• Identifico patrones y conexiones
 
-## 🔍 **Sistema RAG (Retrieval-Augmented Generation)**
-• **Búsqueda semántica** - Encuentro información relevante
-• **Base de conocimiento vectorial** - Almaceno y recupero conocimiento
-• **Generación aumentada** - Combino información con generación de texto
-• **Múltiples fuentes** - Integro APIs, documentos y bases de datos
+✍️ **Generación de Contenido:**
+• Escribo textos y documentos
+• Creo planes y estrategias
+• Desarrollo ideas y propuestas
+• Genero recomendaciones personalizadas
 
-## 🔌 **Conectores de Datos**
-• **APIs de Clima** - OpenWeather, WeatherAPI
-• **APIs de Noticias** - NewsAPI, GNews
-• **APIs Financieras** - Alpha Vantage, Yahoo Finance
-• **Búsqueda Web** - Google Search, Serper API
+🧮 **Cálculos y Análisis Numérico:**
+• Operaciones matemáticas básicas
+• Cálculos de porcentajes y proporciones
+• Conversiones de unidades
+• Análisis estadístico básico
 
-## 🛠️ **Herramientas Especializadas**
-• **Calculadora Avanzada** - Operaciones matemáticas complejas
-• **Analizador de Texto** - Análisis de sentimiento, palabras clave
-• **Procesador de Datos** - Filtrado, ordenamiento, agregación
-• **Manejador de Archivos** - Operaciones de lectura/escritura
+📋 **Organización y Planificación:**
+• Creo listas y estructuras
+• Organizo información
+• Planifico tareas y proyectos
+• Establezco prioridades
 
-## 🗄️ **Base de Datos PostgreSQL**
-• **Almacenamiento robusto** - PostgreSQL para datos estructurados
-• **Escalabilidad** - Soporte para grandes volúmenes
-• **Concurrencia** - Múltiples usuarios simultáneos
-• **Integridad** - Transacciones ACID
-
-## 💡 **Ejemplos de Uso**
-• "¿Cuál es el clima actual en Madrid?"
-• "Analiza el mercado de criptomonedas"
-• "Crea un plan de marketing digital"
+💡 **Ejemplos de Uso:**
+• "Explica qué es la inteligencia artificial"
+• "Crea un plan de estudio para Python"
+• "Analiza las ventajas de las energías renovables"
 • "Calcula la rentabilidad de una inversión"
-• "Investiga las tendencias de IA en 2024"
+• "Organiza una lista de tareas para un proyecto"
 
-## 🚀 **Estado Actual**
-• **Versión**: {self.config['agent_version']}
-• **Entorno**: {self.config['environment']}
-• **Estado**: {'Activo' if self.is_running else 'Inactivo'}
-• **Conversaciones**: {len(self.conversation_history)}
-
-¿Qué te gustaría que haga por ti?"""
+🎯 **¿En qué área específica te gustaría que te ayude?**"""
         
-        elif "estado" in query_lower or "status" in query_lower:
-            status = self.get_status()
-            return f"""📊 **Estado del Sistema**
-
-🤖 **Información del Agente:**
-• ID: {status['agent_id']}
-• Estado: {status['status']}
-• Tiempo activo: {status['uptime']:.2f} segundos
-• Conversaciones: {status['conversations']}
-• Versión: {status['version']}
-
-🔧 **Configuración:**
-• Entorno: {self.config['environment']}
-• Debug: {self.config['debug']}
-• Tareas máximas: {self.config['max_concurrent_tasks']}
-• Timeout: {self.config['request_timeout']}s
-
-✅ **Sistema funcionando correctamente**"""
+        elif "gracias" in query_lower or "thanks" in query_lower:
+            return "¡De nada! Es un placer poder ayudarte. Si necesitas algo más, no dudes en preguntar. Estoy aquí para asistirte con cualquier tarea o consulta que tengas."
+        
+        elif "adiós" in query_lower or "bye" in query_lower or "chao" in query_lower:
+            return "¡Hasta luego! Ha sido un placer ayudarte. Que tengas un excelente día y recuerda que estoy aquí cuando necesites asistencia. ¡Que todo te vaya muy bien!"
         
         else:
             return f"""He recibido tu consulta: "{query}"
 
-En esta versión independiente, puedo procesar tu petición y generar respuestas inteligentes. 
+Como **Asistente de IA Independiente**, puedo ayudarte con:
 
-**Para funcionalidades completas necesitarías:**
-• Configurar APIs externas (clima, noticias, finanzas)
-• Base de datos PostgreSQL
-• Sistema RAG completo
-• Herramientas especializadas
+🔍 **Búsqueda y Análisis:**
+• Explicar conceptos y términos
+• Analizar información y datos
+• Proporcionar contexto y antecedentes
+• Identificar tendencias y patrones
 
-**Pero puedo ayudarte con:**
-• Análisis de texto y consultas
-• Generación de contenido
-• Resolución de problemas
-• Explicaciones detalladas
+✍️ **Generación de Contenido:**
+• Crear textos y documentos
+• Desarrollar planes y estrategias
+• Generar ideas y propuestas
+• Escribir resúmenes y síntesis
 
-¿Te gustaría que te ayude con algo específico o que te explique más sobre mis capacidades?"""
+🧮 **Cálculos y Análisis:**
+• Operaciones matemáticas básicas
+• Análisis numérico y estadístico
+• Conversiones y cálculos de proporciones
+• Evaluación de datos cuantitativos
+
+📋 **Organización:**
+• Estructurar información
+• Crear listas y categorías
+• Planificar tareas y proyectos
+• Establecer prioridades y secuencias
+
+💡 **Para funcionalidades avanzadas:**
+En una versión completa con APIs configuradas, podría:
+• Conectarme a fuentes de datos en tiempo real
+• Acceder a información meteorológica actual
+• Obtener noticias y actualizaciones
+• Realizar análisis financieros complejos
+• Integrar con bases de conocimiento especializadas
+
+¿Te gustaría que te ayude con algo específico dentro de mis capacidades actuales?"""
     
     def get_status(self) -> Dict[str, Any]:
         """Obtener estado del asistente"""
-        uptime = (datetime.now() - self.start_time).total_seconds()
-        
         return {
             "agent_id": self.agent_id,
-            "status": "running" if self.is_running else "stopped",
-            "uptime": uptime,
+            "is_running": self.is_running,
+            "start_time": self.start_time.isoformat(),
+            "uptime": (datetime.now() - self.start_time).total_seconds(),
             "conversations": len(self.conversation_history),
-            "version": self.config['agent_version'],
-            "model": "standalone_assistant"
+            "version": self.config.get("agent_version", "1.0.0"),
+            "type": "standalone_assistant"
         }
     
     def get_conversation_history(self) -> List[Dict[str, Any]]:
         """Obtener historial de conversaciones"""
-        return self.conversation_history
+        return [
+            {
+                "timestamp": conv["timestamp"].isoformat(),
+                "query": conv["query"],
+                "response": conv["response"],
+                "processing_time": conv.get("processing_time", 0)
+            }
+            for conv in self.conversation_history
+        ]
     
     def save_conversation_history(self, filename: str = "conversation_history.json"):
-        """Guardar historial de conversaciones"""
+        """Guardar historial de conversaciones en archivo"""
         try:
+            history = self.get_conversation_history()
             with open(filename, 'w', encoding='utf-8') as f:
-                json.dump(self.conversation_history, f, indent=2, ensure_ascii=False)
+                json.dump(history, f, indent=2, ensure_ascii=False)
             print(f"{Colors.OKGREEN}✅ Historial guardado en {filename}{Colors.ENDC}")
         except Exception as e:
             print(f"{Colors.FAIL}❌ Error guardando historial: {e}{Colors.ENDC}")
@@ -371,123 +363,115 @@ En esta versión independiente, puedo procesar tu petición y generar respuestas
 
 async def interactive_mode():
     """Modo interactivo"""
-    print(f"{Colors.HEADER}{Colors.BOLD}")
-    print("🤖 ASISTENTE DE IA - MODO INTERACTIVO")
-    print("=" * 50)
-    print(f"{Colors.ENDC}")
-    print("💡 Escribe 'salir' para terminar")
-    print("💡 Escribe 'ayuda' para ver mis capacidades")
-    print("💡 Escribe 'estado' para ver el estado del sistema")
-    print("💡 Escribe 'guardar' para guardar el historial")
-    print("=" * 50)
-    
     assistant = StandaloneAssistant()
     await assistant.start()
     
-    try:
-        while True:
-            print(f"\n{Colors.OKCYAN}👤 Tú: {Colors.ENDC}", end="")
-            user_input = input().strip()
+    print(f"\n{Colors.HEADER}🎮 Modo Interactivo - Asistente Independiente{Colors.ENDC}")
+    print("Escribe 'quit' para salir")
+    print("Escribe 'status' para ver el estado")
+    print("Escribe 'history' para ver el historial")
+    print("Escribe 'save' para guardar el historial")
+    print("-" * 50)
+    
+    while True:
+        try:
+            query = input(f"\n{Colors.OKCYAN}🤖 Tú: {Colors.ENDC}").strip()
             
-            if user_input.lower() in ['salir', 'exit', 'quit']:
+            if query.lower() == 'quit':
                 break
-            
-            if user_input.lower() == 'guardar':
+            elif query.lower() == 'status':
+                status = assistant.get_status()
+                print(f"\n{Colors.OKBLUE}📊 Estado del Asistente:{Colors.ENDC}")
+                print(f"  ID: {status['agent_id']}")
+                print(f"  Ejecutándose: {'Sí' if status['is_running'] else 'No'}")
+                print(f"  Conversaciones: {status['conversations']}")
+                print(f"  Versión: {status['version']}")
+                print(f"  Tiempo activo: {status['uptime']:.2f}s")
+                continue
+            elif query.lower() == 'history':
+                history = assistant.get_conversation_history()
+                print(f"\n{Colors.OKBLUE}📚 Historial de Conversaciones ({len(history)}):{Colors.ENDC}")
+                for i, conv in enumerate(history[-5:], 1):  # Mostrar solo las últimas 5
+                    print(f"  {i}. {conv['query'][:50]}...")
+                continue
+            elif query.lower() == 'save':
                 assistant.save_conversation_history()
                 continue
-            
-            if not user_input:
+            elif not query:
                 continue
             
-            # Crear petición
-            request = AgentRequest(
-                query=user_input,
-                priority=PriorityLevel.MEDIUM
-            )
-            
-            # Procesar petición
-            print(f"{Colors.OKBLUE}🤖 Asistente: Procesando...{Colors.ENDC}")
+            # Procesar consulta
+            request = AgentRequest(query=query)
             response = await assistant.process_request(request)
             
             if response.success:
-                print(f"{Colors.OKGREEN}🤖 Asistente: {response.content}{Colors.ENDC}")
-                print(f"{Colors.OKCYAN}⏱️  Tiempo: {response.processing_time:.2f}s{Colors.ENDC}")
-                print(f"{Colors.OKCYAN}📊 Confianza: {response.confidence_score:.1%}{Colors.ENDC}")
+                print(f"\n{Colors.OKGREEN}🤖 Asistente: {Colors.ENDC}{response.content}")
+                print(f"{Colors.OKCYAN}⏱️ Tiempo: {response.processing_time:.2f}s{Colors.ENDC}")
             else:
-                print(f"{Colors.FAIL}❌ Error: {response.error}{Colors.ENDC}")
+                print(f"\n{Colors.FAIL}❌ Error: {Colors.ENDC}{response.error}")
+                
+        except KeyboardInterrupt:
+            print(f"\n{Colors.WARNING}👋 ¡Hasta luego!{Colors.ENDC}")
+            break
+        except Exception as e:
+            print(f"\n{Colors.FAIL}❌ Error: {e}{Colors.ENDC}")
     
-    except KeyboardInterrupt:
-        print(f"\n\n{Colors.WARNING}🛑 Interrumpido por el usuario{Colors.ENDC}")
-    
-    finally:
-        await assistant.stop()
-        
-        # Mostrar estadísticas
-        status = assistant.get_status()
-        print(f"\n{Colors.HEADER}📊 Estadísticas de la sesión:{Colors.ENDC}")
-        print(f"   Conversaciones: {status['conversations']}")
-        print(f"   Tiempo activo: {status['uptime']:.2f}s")
-        print(f"   Estado: {status['status']}")
+    await assistant.stop()
 
 
 async def demo_mode():
     """Modo demostración"""
-    print(f"{Colors.HEADER}{Colors.BOLD}")
-    print("🎯 ASISTENTE DE IA - MODO DEMOSTRACIÓN")
-    print("=" * 50)
-    print(f"{Colors.ENDC}")
-    
     assistant = StandaloneAssistant()
     await assistant.start()
     
-    # Consultas de demostración
+    print(f"\n{Colors.HEADER}🎬 Modo Demostración - Asistente Independiente{Colors.ENDC}")
+    print("=" * 60)
+    
+    # Consultas de ejemplo
     demo_queries = [
         "Hola, ¿cómo estás?",
         "¿Qué puedes hacer?",
-        "¿Puedes ayudarme con el clima?",
-        "Necesito un análisis de mercado",
-        "Calcula 25 + 37",
-        "¿Cuál es el estado del sistema?"
+        "Necesito información sobre el clima",
+        "¿Puedes ayudarme con matemáticas?",
+        "Gracias por tu ayuda"
     ]
     
     for i, query in enumerate(demo_queries, 1):
-        print(f"\n{Colors.OKBLUE}🔍 Demostración {i}: {query}{Colors.ENDC}")
+        print(f"\n{Colors.OKCYAN}🔍 Consulta {i}: {query}{Colors.ENDC}")
         print("-" * 40)
         
-        request = AgentRequest(
-            query=query,
-            priority=PriorityLevel.MEDIUM
-        )
-        
+        request = AgentRequest(query=query)
         response = await assistant.process_request(request)
         
         if response.success:
-            print(f"{Colors.OKGREEN}✅ Respuesta: {response.content}{Colors.ENDC}")
-            print(f"{Colors.OKCYAN}⏱️  Tiempo: {response.processing_time:.2f}s{Colors.ENDC}")
-            print(f"{Colors.OKCYAN}📊 Confianza: {response.confidence_score:.1%}{Colors.ENDC}")
+            print(f"{Colors.OKGREEN}✅ Respuesta generada en {response.processing_time:.2f}s{Colors.ENDC}")
+            print(f"{Colors.OKBLUE}📊 Confianza: {response.confidence_score:.1%}{Colors.ENDC}")
+            print(f"\n{Colors.OKGREEN}📄 Respuesta:{Colors.ENDC}")
+            print(response.content[:500] + "..." if len(response.content) > 500 else response.content)
         else:
             print(f"{Colors.FAIL}❌ Error: {response.error}{Colors.ENDC}")
         
-        print("-" * 40)
-    
-    await assistant.stop()
+        print("\n" + "=" * 60)
+        await asyncio.sleep(1)
     
     # Mostrar estadísticas finales
     status = assistant.get_status()
-    print(f"\n{Colors.HEADER}📊 Estadísticas de la demostración:{Colors.ENDC}")
-    print(f"   Consultas procesadas: {status['conversations']}")
-    print(f"   Tiempo total: {status['uptime']:.2f}s")
-    print(f"   Estado: {status['status']}")
+    print(f"\n{Colors.OKBLUE}📊 Estadísticas Finales:{Colors.ENDC}")
+    print(f"  Conversaciones: {status['conversations']}")
+    print(f"  Tiempo activo: {status['uptime']:.2f}s")
+    print(f"  Versión: {status['version']}")
+    
+    await assistant.stop()
 
 
 async def main():
     """Función principal"""
     import argparse
     
-    parser = argparse.ArgumentParser(description="Asistente de IA Independiente")
+    parser = argparse.ArgumentParser(description="🤖 Asistente de IA Independiente")
     parser.add_argument("--interactive", "-i", action="store_true", help="Modo interactivo")
     parser.add_argument("--demo", "-d", action="store_true", help="Modo demostración")
-    parser.add_argument("--query", "-q", type=str, help="Consulta única")
+    parser.add_argument("--query", "-q", help="Consulta única")
     
     args = parser.parse_args()
     
@@ -499,18 +483,21 @@ async def main():
         assistant = StandaloneAssistant()
         await assistant.start()
         
-        request = AgentRequest(query=args.query, priority=PriorityLevel.MEDIUM)
+        request = AgentRequest(query=args.query)
         response = await assistant.process_request(request)
         
         if response.success:
-            print(f"{Colors.OKGREEN}🤖 Respuesta: {response.content}{Colors.ENDC}")
+            print(f"{Colors.OKGREEN}✅ Respuesta: {Colors.ENDC}{response.content}")
         else:
-            print(f"{Colors.FAIL}❌ Error: {response.error}{Colors.ENDC}")
+            print(f"{Colors.FAIL}❌ Error: {Colors.ENDC}{response.error}")
         
         await assistant.stop()
     else:
-        # Modo por defecto: demostración
-        await demo_mode()
+        print(f"{Colors.HEADER}🤖 Asistente de IA Independiente{Colors.ENDC}")
+        print("Uso:")
+        print("  python assistant_standalone.py --interactive")
+        print("  python assistant_standalone.py --demo")
+        print("  python assistant_standalone.py --query 'tu consulta'")
 
 
 if __name__ == "__main__":
