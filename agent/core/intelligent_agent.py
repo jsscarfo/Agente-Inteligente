@@ -21,6 +21,7 @@ from .models import (
 from .database import get_db_manager, ConversationRepository, MessageRepository, TaskRepository
 from .rag_system import get_rag_system
 from .workflow_graph import get_workflow_graph
+from .sequential_thinking import SequentialThinkingEngine, create_thinking_engine, format_thinking_output
 
 
 class IntelligentAgent:
@@ -42,6 +43,9 @@ class IntelligentAgent:
         self.db_manager = get_db_manager()
         self.rag_system = get_rag_system()
         self.workflow_graph = get_workflow_graph()
+        
+        # Motor de razonamiento secuencial
+        self.thinking_engine = None  # Se inicializará después
         
         # Repositorios de base de datos
         self.conversation_repo = ConversationRepository(self.db_manager)
@@ -72,6 +76,10 @@ class IntelligentAgent:
             # Inicializar grafo de flujo de trabajo
             await self.workflow_graph.initialize()
             logger.info("✅ Grafo de flujo de trabajo inicializado")
+            
+            # Inicializar motor de razonamiento secuencial
+            self.thinking_engine = await create_thinking_engine()
+            logger.info("🧠 Motor de razonamiento secuencial inicializado")
             
             logger.info("🤖 Agente Inteligente iniciado correctamente")
             
@@ -387,8 +395,85 @@ class IntelligentAgent:
             "database": "PostgreSQL" if self.config.use_postgres() else "SQLite",
             "rag_system": "Enabled",
             "langgraph": "Enabled",
+            "sequential_thinking": "Enabled" if self.thinking_engine else "Disabled",
             "vector_store": self.config.vector_db_type,
             "environment": self.config.environment,
             "uptime": self.get_uptime(),
             "agent_id": self.agent_id
-        } 
+        }
+    
+    async def solve_with_sequential_thinking(self, problem: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        Resolver un problema usando razonamiento secuencial
+        
+        Args:
+            problem: El problema a resolver
+            context: Contexto adicional para el problema
+            
+        Returns:
+            Dict con la respuesta y metadatos del razonamiento
+        """
+        try:
+            if not self.thinking_engine:
+                raise Exception("Motor de razonamiento secuencial no inicializado")
+            
+            logger.info(f"🧠 Iniciando razonamiento secuencial para: {problem[:100]}...")
+            
+            # Crear sesión de razonamiento
+            session = await self.thinking_engine.solve_problem(problem, context)
+            
+            # Obtener resumen de la sesión
+            summary = self.thinking_engine.get_session_summary(session)
+            
+            # Formatear salida para el usuario
+            formatted_output = format_thinking_output(session)
+            
+            return {
+                "success": session.status == "completed",
+                "answer": session.final_answer or "No se pudo resolver el problema",
+                "confidence": session.confidence,
+                "formatted_output": formatted_output,
+                "summary": summary,
+                "session_id": session.id,
+                "total_steps": len(session.steps),
+                "completed_steps": len([s for s in session.steps if s.status == "completed"]),
+                "failed_steps": len([s for s in session.steps if s.status == "failed"])
+            }
+            
+        except Exception as e:
+            logger.error(f"Error en razonamiento secuencial: {e}")
+            return {
+                "success": False,
+                "answer": f"Error en razonamiento secuencial: {str(e)}",
+                "confidence": 0.0,
+                "formatted_output": f"❌ Error: {str(e)}",
+                "summary": {},
+                "session_id": None,
+                "total_steps": 0,
+                "completed_steps": 0,
+                "failed_steps": 0
+            }
+    
+    async def get_thinking_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Obtener información de una sesión de razonamiento específica
+        
+        Args:
+            session_id: ID de la sesión
+            
+        Returns:
+            Dict con información de la sesión o None si no existe
+        """
+        try:
+            if not self.thinking_engine:
+                return None
+            
+            session = self.thinking_engine.sessions.get(session_id)
+            if not session:
+                return None
+            
+            return self.thinking_engine.export_session(session)
+            
+        except Exception as e:
+            logger.error(f"Error obteniendo sesión de razonamiento: {e}")
+            return None 

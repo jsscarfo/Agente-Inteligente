@@ -7,6 +7,7 @@ Un sistema de agente de inteligencia artificial avanzado capaz de procesar petic
 ### 🧠 **Inteligencia Artificial Avanzada**
 - **Procesamiento de Lenguaje Natural**: Comprensión profunda de peticiones en texto libre
 - **Razonamiento Multi-Paso**: Descomposición automática de tareas complejas
+- **Sequential Thinking**: Razonamiento secuencial estructurado para problemas complejos
 - **Memoria Contextual**: Mantiene contexto entre conversaciones
 - **Aprendizaje Adaptativo**: Mejora respuestas basado en interacciones previas
 
@@ -41,6 +42,13 @@ Un sistema de agente de inteligencia artificial avanzado capaz de procesar petic
 - **Gestión de Errores**: Manejo robusto de fallos
 - **Logging Inteligente**: Registro detallado de operaciones
 - **Monitoreo en Tiempo Real**: Métricas de rendimiento
+
+### 🧠 **Sequential Thinking**
+- **Razonamiento Estructurado**: Descomposición paso a paso de problemas complejos
+- **Análisis Automático**: Identificación de componentes y dependencias
+- **Validación de Pasos**: Verificación de cada etapa del proceso
+- **Síntesis Inteligente**: Integración de resultados en respuestas coherentes
+- **Transparencia Total**: Visibilidad completa del proceso de pensamiento
 
 ## 📋 Requisitos
 
@@ -235,6 +243,13 @@ Agente_Inteligente/
 - Automatización de procesos con workflows
 - Orquestación de servicios
 
+### 🧠 **Sequential Thinking - Problemas Complejos**
+- **Planificación Estratégica**: Análisis paso a paso de decisiones complejas
+- **Resolución de Problemas**: Descomposición automática en sub-problemas
+- **Análisis de Causa Raíz**: Identificación sistemática de problemas
+- **Toma de Decisiones**: Evaluación estructurada de alternativas
+- **Optimización de Procesos**: Mejora iterativa de flujos de trabajo
+
 ## 🔒 Seguridad
 
 - **Autenticación**: Sistema de autenticación robusto
@@ -315,6 +330,48 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más det
 - **Discusiones**: [GitHub Discussions](https://github.com/tu-usuario/agente-inteligente/discussions)
 - **Email**: soporte@agente-inteligente.com
 
+## 💻 Comandos de Uso
+
+### Uso Básico
+```bash
+# Iniciar agente en modo interactivo
+python main.py
+
+# Procesar una consulta específica
+python main.py --query "¿Qué es la inteligencia artificial?"
+
+# Mostrar estado del sistema
+python main.py --status
+```
+
+### Sequential Thinking
+```bash
+# Resolver problema complejo con Sequential Thinking
+python main.py --query "Planificar una fiesta para 20 personas con presupuesto de $500" --sequential-thinking
+
+# Modo interactivo con comandos
+python main.py --interactive
+# Luego usar: /st "Mi empresa está perdiendo clientes, ¿qué hacer?"
+```
+
+### Scripts de Prueba
+```bash
+# Test de Sequential Thinking
+python test_sequential_thinking.py
+
+# Demo completo de Sequential Thinking
+python sequential_thinking_demo.py
+```
+
+### Comandos Interactivos
+```
+/query <texto>     - Procesar consulta normal
+/st <texto>        - Procesar con Sequential Thinking
+/status            - Mostrar estado del sistema
+/help              - Mostrar ayuda
+/quit              - Salir
+```
+
 ## 🎉 Agradecimientos
 
 - OpenAI por proporcionar las APIs de IA
@@ -325,4 +382,4 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más det
 
 ---
 
-**¿Listo para experimentar la inteligencia artificial del futuro con PostgreSQL, LangGraph y RAG?** 🚀 
+**¿Listo para experimentar la inteligencia artificial del futuro con PostgreSQL, LangGraph, RAG y Sequential Thinking?** 🚀🧠 

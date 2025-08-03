@@ -57,47 +57,84 @@ class AgentCLI:
             except Exception as e:
                 print(f"❌ Error deteniendo el agente: {e}")
     
-    async def process_query(self, query: str, priority: str = "medium"):
+    async def process_query(self, query: str, priority: str = "medium", use_sequential_thinking: bool = False):
         """Procesar una consulta"""
         if not self.agent:
             print("❌ El agente no está iniciado")
             return
         
         try:
-            # Crear petición
-            request = AgentRequest(
-                query=query,
-                priority=PriorityLevel(priority.lower())
-            )
-            
-            print(f"📝 Procesando: {query}")
-            print("🔄 Ejecutando...")
-            
-            # Procesar petición
-            response = await self.agent.process_request(request)
-            
-            # Mostrar resultado
-            print("\n" + "="*60)
-            print("🎯 RESPUESTA DEL AGENTE")
-            print("="*60)
-            
-            if response.success:
-                print(f"✅ Estado: Exitoso")
-                print(f"📊 Confianza: {response.confidence_score:.1%}")
-                print(f"⏱️  Tiempo: {response.processing_time:.2f}s")
-                print(f"🔧 Tareas: {response.metadata.get('tasks_executed', 0)} ejecutadas")
-                print()
-                print("📄 Contenido:")
-                print("-" * 40)
-                print(response.content)
+            if use_sequential_thinking:
+                # Usar Sequential Thinking
+                print(f"🧠 Procesando con Sequential Thinking: {query}")
+                print("🔄 Ejecutando razonamiento secuencial...")
                 
-                if response.summary:
-                    print("\n📋 Resumen:")
-                    print("-" * 20)
-                    print(response.summary)
+                result = await self.agent.solve_with_sequential_thinking(query)
                 
-                if response.sources:
-                    print(f"\n📚 Fuentes ({len(response.sources)}):")
+                # Mostrar resultado
+                print("\n" + "="*60)
+                print("🧠 RESPUESTA - SEQUENTIAL THINKING")
+                print("="*60)
+                
+                if result['success']:
+                    print(f"✅ Estado: Exitoso")
+                    print(f"📊 Confianza: {result['confidence']:.1%}")
+                    print(f"🔧 Pasos: {result['completed_steps']}/{result['total_steps']} completados")
+                    print()
+                    print("📄 Respuesta:")
+                    print("-" * 40)
+                    print(result['answer'])
+                    print()
+                    print("🧠 Proceso de Razonamiento:")
+                    print("-" * 40)
+                    print(result['formatted_output'])
+                    
+                    # Mostrar estadísticas detalladas
+                    if result['summary']:
+                        summary = result['summary']
+                        print(f"\n📊 Estadísticas Detalladas:")
+                        print(f"   ID Sesión: {summary.get('session_id', 'N/A')}")
+                        print(f"   Estado: {summary.get('status', 'N/A')}")
+                        print(f"   Duración: {summary.get('duration', 'N/A')} segundos")
+                        print(f"   Pasos Fallidos: {result['failed_steps']}")
+                else:
+                    print(f"❌ Estado: Fallido")
+                    print(f"📄 Error: {result['answer']}")
+            else:
+                # Procesamiento normal
+                request = AgentRequest(
+                    query=query,
+                    priority=PriorityLevel(priority.lower())
+                )
+                
+                print(f"📝 Procesando: {query}")
+                print("🔄 Ejecutando...")
+                
+                # Procesar petición
+                response = await self.agent.process_request(request)
+                
+                # Mostrar resultado
+                print("\n" + "="*60)
+                print("🎯 RESPUESTA DEL AGENTE")
+                print("="*60)
+                
+                if response.success:
+                    print(f"✅ Estado: Exitoso")
+                    print(f"📊 Confianza: {response.confidence_score:.1%}")
+                    print(f"⏱️  Tiempo: {response.processing_time:.2f}s")
+                    print(f"🔧 Tareas: {response.metadata.get('tasks_executed', 0)} ejecutadas")
+                    print()
+                    print("📄 Contenido:")
+                    print("-" * 40)
+                    print(response.content)
+                    
+                    if response.summary:
+                        print("\n📋 Resumen:")
+                        print("-" * 20)
+                        print(response.summary)
+                    
+                    if response.sources:
+                        print(f"\n📚 Fuentes ({len(response.sources)}):")
                     for i, source in enumerate(response.sources, 1):
                         print(f"  {i}. {source.get('title', 'Sin título')}")
                 
@@ -167,17 +204,24 @@ class AgentCLI:
                 if command.lower() == "/quit":
                     break
                 elif command.lower() == "/help":
-                    print("Comandos disponibles:")
-                    print("  /query <texto> - Procesar una consulta")
-                    print("  /status - Mostrar estado del sistema")
-                    print("  /help - Mostrar esta ayuda")
-                    print("  /quit - Salir")
+                            print("Comandos disponibles:")
+        print("  /query <texto> - Procesar una consulta")
+        print("  /st <texto> - Procesar con Sequential Thinking")
+        print("  /status - Mostrar estado del sistema")
+        print("  /help - Mostrar esta ayuda")
+        print("  /quit - Salir")
                 elif command.lower() == "/status":
                     await self.show_status()
                 elif command.startswith("/query "):
                     query = command[7:].strip()
                     if query:
                         await self.process_query(query)
+                    else:
+                        print("❌ Debes proporcionar una consulta")
+                elif command.startswith("/st "):
+                    query = command[4:].strip()
+                    if query:
+                        await self.process_query(query, use_sequential_thinking=True)
                     else:
                         print("❌ Debes proporcionar una consulta")
                 else:
@@ -199,6 +243,7 @@ async def main():
         epilog="""
 Ejemplos de uso:
   python main.py --query "¿Qué es la inteligencia artificial?"
+  python main.py --query "Planificar una fiesta para 20 personas" --sequential-thinking
   python main.py --interactive
   python main.py --status
         """
@@ -214,6 +259,12 @@ Ejemplos de uso:
         choices=["low", "medium", "high", "critical"],
         default="medium",
         help="Prioridad de la consulta (default: medium)"
+    )
+    
+    parser.add_argument(
+        "--sequential-thinking", "--st",
+        action="store_true",
+        help="Usar Sequential Thinking para resolver problemas complejos"
     )
     
     parser.add_argument(
@@ -245,7 +296,7 @@ Ejemplos de uso:
         
         # Ejecutar comando solicitado
         if args.query:
-            await cli.process_query(args.query, args.priority)
+            await cli.process_query(args.query, args.priority, args.sequential_thinking)
         elif args.status:
             await cli.show_status()
         elif args.interactive:
