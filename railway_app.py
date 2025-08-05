@@ -321,7 +321,7 @@ async def get_stats():
 @app.get("/api/documents")
 async def get_documents():
     """Obtener lista de documentos disponibles"""
-            return {
+    return {
         "documents": [
             {
                 "id": doc_id,
@@ -332,7 +332,7 @@ async def get_documents():
             }
             for doc_id, doc in document_search.documents.items()
         ]
-        }
+    }
 
 if __name__ == "__main__":
     print("🤖 MLB Assistant Chat - Iniciando...")
