@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
-🤖 MLB Assistant Chat - Aplicación para Railway con PostgreSQL
+🤖 MLB Assistant Chat - Aplicación para Railway con PostgreSQL y RAG Contextual Avanzado
 
 Esta aplicación está optimizada para despliegue en Railway y usa PostgreSQL
-como base de datos principal.
+como base de datos principal con sistema RAG contextual para respuestas expertas.
 """
 
 import os
 import json
 import time
 import uuid
+import re
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from pathlib import Path
@@ -37,7 +38,7 @@ TEMPLATES_DIR.mkdir(exist_ok=True)
 STATIC_DIR.mkdir(exist_ok=True)
 UPLOADS_DIR.mkdir(exist_ok=True)
 
-app = FastAPI(title="MLB Assistant Chat", version="1.0.0")
+app = FastAPI(title="MLB Assistant Chat", version="2.0.0")
 
 # Configurar CORS
 app.add_middleware(
@@ -64,21 +65,46 @@ class ChatResponse(BaseModel):
     confidence: float = 0.0
     processing_time: float = 0.0
 
-class PostgreSQLDatabase:
-    def __init__(self):
-        self.database_url = os.environ.get('DATABASE_URL')
-        if not self.database_url:
-            raise ValueError("DATABASE_URL no encontrada en variables de entorno")
+class AdvancedRAGSystem:
+    """Sistema RAG avanzado para respuestas contextuales y expertas"""
     
-    def get_connection(self):
-        """Obtener conexión a la base de datos"""
-        return psycopg2.connect(self.database_url)
+    def __init__(self, db_connection):
+        self.db = db_connection
     
-    def search_documents(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
-        """Buscar documentos usando búsqueda de texto completo"""
+    def extract_keywords(self, query: str) -> List[str]:
+        """Extraer palabras clave relevantes de la consulta"""
+        # Palabras clave específicas de MLB
+        mlb_keywords = [
+            'regla', 'reglas', 'pitch', 'bateo', 'corredor', 'base', 'out', 'inning',
+            'apuesta', 'apuestas', 'drogas', 'tabaco', 'violencia', 'doméstica',
+            'redes', 'sociales', 'novatadas', 'fantasma', 'clock', 'reloj',
+            'suspensión', 'multa', 'penalización', 'prohibido', 'permitido'
+        ]
+        
+        query_lower = query.lower()
+        keywords = []
+        
+        # Buscar palabras clave específicas
+        for keyword in mlb_keywords:
+            if keyword in query_lower:
+                keywords.append(keyword)
+        
+        # Agregar palabras generales importantes
+        words = re.findall(r'\b\w+\b', query_lower)
+        for word in words:
+            if len(word) > 3 and word not in ['para', 'con', 'los', 'las', 'del', 'una', 'este', 'esta']:
+                keywords.append(word)
+        
+        return list(set(keywords))
+    
+    def search_contextual(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Búsqueda contextual avanzada"""
         try:
-            with self.get_connection() as conn:
+            keywords = self.extract_keywords(query)
+            
+            with self.db.get_connection() as conn:
                 with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                    # Búsqueda principal con relevancia
                     cursor.execute("""
                         SELECT c.id, c.content, c.title, c.document_id,
                                ts_rank(to_tsvector('spanish', c.content), plainto_tsquery('spanish', %s)) as relevance
@@ -88,12 +114,157 @@ class PostgreSQLDatabase:
                         LIMIT %s
                     """, (query, query, limit))
                     
-                    results = cursor.fetchall()
-                    return [dict(row) for row in results]
+                    primary_results = cursor.fetchall()
+                    
+                    # Si no hay resultados suficientes, buscar por palabras clave
+                    if len(primary_results) < 3 and keywords:
+                        keyword_query = ' | '.join(keywords)
+                        cursor.execute("""
+                            SELECT c.id, c.content, c.title, c.document_id,
+                                   ts_rank(to_tsvector('spanish', c.content), plainto_tsquery('spanish', %s)) as relevance
+                            FROM chunks c
+                            WHERE to_tsvector('spanish', c.content) @@ plainto_tsquery('spanish', %s)
+                            ORDER BY relevance DESC
+                            LIMIT %s
+                        """, (keyword_query, keyword_query, limit - len(primary_results)))
+                        
+                        keyword_results = cursor.fetchall()
+                        primary_results.extend(keyword_results)
+                    
+                    return [dict(row) for row in primary_results]
                     
         except Exception as e:
-            print(f"❌ Error en búsqueda: {e}")
+            print(f"❌ Error en búsqueda contextual: {e}")
             return []
+    
+    def format_expert_response(self, query: str, search_results: List[Dict], confidence: float) -> str:
+        """Formatear respuesta con tono experto y profesional"""
+        
+        if not search_results:
+            return self.format_no_results_response(query)
+        
+        # Extraer información relevante
+        relevant_content = []
+        sources_info = []
+        
+        for result in search_results:
+            content = result['content'].strip()
+            title = result.get('title', 'Documento MLB')
+            
+            # Limpiar y formatear contenido
+            clean_content = re.sub(r'\s+', ' ', content)
+            clean_content = clean_content.replace('...', '').strip()
+            
+            if len(clean_content) > 50:  # Solo contenido sustancial
+                relevant_content.append(clean_content)
+                sources_info.append(title)
+        
+        if not relevant_content:
+            return self.format_no_results_response(query)
+        
+        # Construir respuesta experta
+        response_parts = []
+        
+        # Encabezado profesional
+        response_parts.append(f"🎯 **Consulta:** {query}")
+        response_parts.append("")
+        
+        # Respuesta principal
+        response_parts.append("📋 **Información Relevante:**")
+        response_parts.append("")
+        
+        # Combinar y formatear contenido
+        combined_content = ' '.join(relevant_content[:3])  # Máximo 3 fragmentos
+        
+        # Dividir en párrafos lógicos
+        sentences = re.split(r'[.!?]+', combined_content)
+        formatted_sentences = []
+        
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if len(sentence) > 20:  # Solo oraciones sustanciales
+                # Capitalizar primera letra
+                if sentence and sentence[0].islower():
+                    sentence = sentence[0].upper() + sentence[1:]
+                formatted_sentences.append(sentence)
+        
+        # Agrupar en párrafos
+        if formatted_sentences:
+            paragraphs = []
+            current_paragraph = []
+            
+            for sentence in formatted_sentences:
+                current_paragraph.append(sentence)
+                if len(current_paragraph) >= 3:  # Máximo 3 oraciones por párrafo
+                    paragraphs.append('. '.join(current_paragraph) + '.')
+                    current_paragraph = []
+            
+            # Agregar párrafo restante
+            if current_paragraph:
+                paragraphs.append('. '.join(current_paragraph) + '.')
+            
+            response_parts.extend(paragraphs)
+        
+        # Información adicional si hay confianza alta
+        if confidence > 0.7:
+            response_parts.append("")
+            response_parts.append("💡 **Nota:** Esta información está basada en las reglas oficiales de MLB y puede estar sujeta a actualizaciones.")
+        
+        # Fuentes
+        if sources_info:
+            response_parts.append("")
+            response_parts.append("📚 **Fuentes:**")
+            unique_sources = list(set(sources_info))
+            for source in unique_sources[:3]:  # Máximo 3 fuentes
+                response_parts.append(f"• {source}")
+        
+        return "\n".join(response_parts)
+    
+    def format_no_results_response(self, query: str) -> str:
+        """Formatear respuesta cuando no hay resultados"""
+        
+        response_parts = []
+        response_parts.append(f"🔍 **Consulta:** {query}")
+        response_parts.append("")
+        response_parts.append("❌ **No encontré información específica** sobre tu consulta en la base de datos actual.")
+        response_parts.append("")
+        response_parts.append("💡 **Sugerencias para mejorar tu búsqueda:**")
+        response_parts.append("")
+        response_parts.append("🎯 **Términos específicos que funcionan:**")
+        response_parts.append("• 'corredor fantasma' - Reglas sobre corredores en base")
+        response_parts.append("• 'pitch clock' - Regulaciones de tiempo")
+        response_parts.append("• 'reglas de apuestas' - Políticas sobre apuestas")
+        response_parts.append("• 'política de drogas' - Sustancias prohibidas")
+        response_parts.append("• 'violencia doméstica' - Sanciones por violencia")
+        response_parts.append("• 'redes sociales' - Uso de medios sociales")
+        response_parts.append("• 'tabaco' - Políticas sobre tabaco")
+        response_parts.append("• 'novatadas' - Prohibiciones de novatadas")
+        response_parts.append("")
+        response_parts.append("🔧 **Consejos:**")
+        response_parts.append("• Usa términos más específicos")
+        response_parts.append("• Busca por número de regla (ej: 'Regla 21')")
+        response_parts.append("• Reformula tu pregunta con palabras clave")
+        response_parts.append("")
+        response_parts.append("📚 **¿Necesitas cargar más documentos?** Usa la sección de carga de documentos para agregar más información.")
+        
+        return "\n".join(response_parts)
+
+class PostgreSQLDatabase:
+    def __init__(self):
+        self.database_url = os.environ.get('DATABASE_URL')
+        if not self.database_url:
+            raise ValueError("DATABASE_URL no encontrada en variables de entorno")
+        
+        # Inicializar sistema RAG
+        self.rag_system = AdvancedRAGSystem(self)
+    
+    def get_connection(self):
+        """Obtener conexión a la base de datos"""
+        return psycopg2.connect(self.database_url)
+    
+    def search_documents(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Buscar documentos usando RAG contextual avanzado"""
+        return self.rag_system.search_contextual(query, limit)
     
     def add_document(self, doc_id: str, title: str, filename: str, content: str) -> int:
         """Agregar un nuevo documento"""
@@ -247,61 +418,355 @@ except Exception as e:
 
 @app.get("/", response_class=HTMLResponse)
 async def chat_interface(request: Request):
-    """Interfaz principal del chat"""
+    """Interfaz principal del chat con diseño mejorado"""
     return HTMLResponse("""
     <!DOCTYPE html>
     <html>
     <head>
-        <title>MLB Assistant Chat</title>
+        <title>MLB Assistant Chat - Expert System</title>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
         <style>
-            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
-            .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-            .header { background: #1e3a8a; color: white; padding: 20px; border-radius: 10px 10px 0 0; }
-            .chat-container { padding: 20px; height: 400px; overflow-y: auto; border-bottom: 1px solid #eee; }
-            .message { margin: 10px 0; padding: 10px; border-radius: 5px; }
-            .user-message { background: #e3f2fd; margin-left: 20%; }
-            .bot-message { background: #f3e5f5; margin-right: 20%; }
-            .input-container { padding: 20px; display: flex; }
-            .input-container input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin-right: 10px; }
-            .input-container button { padding: 10px 20px; background: #1e3a8a; color: white; border: none; border-radius: 5px; cursor: pointer; }
-            .input-container button:hover { background: #1e40af; }
-            .stats { padding: 10px; background: #f8f9fa; border-radius: 0 0 10px 10px; font-size: 12px; color: #666; }
-            .upload-section { padding: 20px; border-top: 1px solid #eee; }
-            .upload-form { display: flex; gap: 10px; align-items: center; }
-            .upload-form input[type="file"] { flex: 1; }
-            .upload-form input[type="text"] { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
-            .upload-form button { padding: 10px 20px; background: #059669; color: white; border: none; border-radius: 5px; cursor: pointer; }
-            .upload-form button:hover { background: #047857; }
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            
+            body {
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                padding: 20px;
+            }
+            
+            .container {
+                max-width: 1000px;
+                margin: 0 auto;
+                background: white;
+                border-radius: 20px;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                overflow: hidden;
+            }
+            
+            .header {
+                background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+                color: white;
+                padding: 30px;
+                text-align: center;
+            }
+            
+            .header h1 {
+                font-size: 2.5rem;
+                font-weight: 700;
+                margin-bottom: 10px;
+                text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            
+            .header p {
+                font-size: 1.1rem;
+                opacity: 0.9;
+                font-weight: 300;
+            }
+            
+            .main-content {
+                display: grid;
+                grid-template-columns: 1fr 350px;
+                gap: 0;
+                min-height: 600px;
+            }
+            
+            .chat-section {
+                padding: 30px;
+                border-right: 1px solid #e5e7eb;
+            }
+            
+            .chat-container {
+                height: 400px;
+                overflow-y: auto;
+                border: 2px solid #e5e7eb;
+                border-radius: 15px;
+                padding: 20px;
+                margin-bottom: 20px;
+                background: #fafafa;
+            }
+            
+            .message {
+                margin: 15px 0;
+                padding: 15px 20px;
+                border-radius: 15px;
+                max-width: 80%;
+                line-height: 1.6;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            }
+            
+            .user-message {
+                background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+                color: white;
+                margin-left: auto;
+                text-align: right;
+            }
+            
+            .bot-message {
+                background: white;
+                border: 2px solid #e5e7eb;
+                margin-right: auto;
+            }
+            
+            .bot-message strong {
+                color: #1e3a8a;
+            }
+            
+            .input-container {
+                display: flex;
+                gap: 15px;
+                align-items: center;
+            }
+            
+            .input-container input {
+                flex: 1;
+                padding: 15px 20px;
+                border: 2px solid #e5e7eb;
+                border-radius: 12px;
+                font-size: 1rem;
+                transition: all 0.3s ease;
+                background: white;
+            }
+            
+            .input-container input:focus {
+                outline: none;
+                border-color: #3b82f6;
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            }
+            
+            .btn {
+                padding: 15px 25px;
+                border: none;
+                border-radius: 12px;
+                font-size: 1rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            }
+            
+            .btn-primary {
+                background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+                color: white;
+            }
+            
+            .btn-primary:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+            }
+            
+            .btn-success {
+                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                color: white;
+            }
+            
+            .btn-success:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+            }
+            
+            .sidebar {
+                background: #f8fafc;
+                padding: 30px;
+            }
+            
+            .upload-section {
+                margin-bottom: 30px;
+            }
+            
+            .upload-section h3 {
+                color: #1e3a8a;
+                font-size: 1.3rem;
+                margin-bottom: 15px;
+                font-weight: 600;
+            }
+            
+            .upload-form {
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .upload-form input[type="file"] {
+                padding: 12px;
+                border: 2px dashed #d1d5db;
+                border-radius: 10px;
+                background: white;
+                cursor: pointer;
+                transition: all 0.3s ease;
+            }
+            
+            .upload-form input[type="file"]:hover {
+                border-color: #3b82f6;
+                background: #f0f9ff;
+            }
+            
+            .upload-form input[type="text"] {
+                padding: 12px 15px;
+                border: 2px solid #e5e7eb;
+                border-radius: 10px;
+                font-size: 0.95rem;
+                transition: all 0.3s ease;
+            }
+            
+            .upload-form input[type="text"]:focus {
+                outline: none;
+                border-color: #3b82f6;
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            }
+            
+            .stats {
+                background: white;
+                padding: 20px;
+                border-radius: 15px;
+                border: 2px solid #e5e7eb;
+                text-align: center;
+            }
+            
+            .stats h4 {
+                color: #1e3a8a;
+                margin-bottom: 10px;
+                font-weight: 600;
+            }
+            
+            .stats-grid {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 15px;
+                margin-top: 15px;
+            }
+            
+            .stat-item {
+                background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+                padding: 15px;
+                border-radius: 10px;
+                border: 1px solid #bae6fd;
+            }
+            
+            .stat-number {
+                font-size: 1.5rem;
+                font-weight: 700;
+                color: #0369a1;
+                display: block;
+            }
+            
+            .stat-label {
+                font-size: 0.8rem;
+                color: #0c4a6e;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                font-weight: 500;
+            }
+            
+            .status-message {
+                padding: 15px;
+                border-radius: 10px;
+                margin-top: 15px;
+                font-weight: 500;
+            }
+            
+            .status-success {
+                background: #dcfce7;
+                color: #166534;
+                border: 1px solid #bbf7d0;
+            }
+            
+            .status-error {
+                background: #fef2f2;
+                color: #dc2626;
+                border: 1px solid #fecaca;
+            }
+            
+            .status-info {
+                background: #dbeafe;
+                color: #1e40af;
+                border: 1px solid #bfdbfe;
+            }
+            
+            @media (max-width: 768px) {
+                .main-content {
+                    grid-template-columns: 1fr;
+                }
+                
+                .chat-section {
+                    border-right: none;
+                    border-bottom: 1px solid #e5e7eb;
+                }
+                
+                .header h1 {
+                    font-size: 2rem;
+                }
+                
+                .stats-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
         </style>
     </head>
     <body>
         <div class="container">
             <div class="header">
-                <h1>🤖 MLB Assistant Chat</h1>
-                <p>Asistente especializado en reglas de MLB (PostgreSQL)</p>
+                <h1>🤖 MLB Expert Assistant</h1>
+                <p>Sistema de Inteligencia Artificial Especializado en Reglas de MLB</p>
             </div>
-            <div class="chat-container" id="chatContainer">
-                <div class="message bot-message">
-                    ¡Hola! Soy tu asistente especializado en reglas de MLB. ¿En qué puedo ayudarte?
+            
+            <div class="main-content">
+                <div class="chat-section">
+                    <div class="chat-container" id="chatContainer">
+                        <div class="message bot-message">
+                            <strong>¡Hola! Soy tu asistente experto en reglas de MLB.</strong><br><br>
+                            Puedo ayudarte con consultas sobre:<br>
+                            • Reglas específicas del juego<br>
+                            • Políticas de la liga<br>
+                            • Sanciones y penalizaciones<br>
+                            • Regulaciones sobre apuestas, drogas, etc.<br><br>
+                            <em>¿En qué puedo ayudarte hoy?</em>
+                        </div>
+                    </div>
+                    
+                    <div class="input-container">
+                        <input type="text" id="messageInput" placeholder="Escribe tu pregunta sobre reglas de MLB..." onkeypress="if(event.key==='Enter') sendMessage()">
+                        <button class="btn btn-primary" onclick="sendMessage()">Enviar</button>
+                    </div>
                 </div>
-            </div>
-            <div class="input-container">
-                <input type="text" id="messageInput" placeholder="Escribe tu pregunta..." onkeypress="if(event.key==='Enter') sendMessage()">
-                <button onclick="sendMessage()">Enviar</button>
-            </div>
-            <div class="upload-section">
-                <h3>📚 Cargar Documento</h3>
-                <form class="upload-form" id="uploadForm">
-                    <input type="file" id="documentFile" accept=".txt,.pdf" required>
-                    <input type="text" id="documentTitle" placeholder="Título del documento" required>
-                    <button type="submit">Cargar</button>
-                </form>
-                <div id="uploadStatus"></div>
-            </div>
-            <div class="stats" id="stats">
-                Cargando estadísticas...
+                
+                <div class="sidebar">
+                    <div class="upload-section">
+                        <h3>📚 Cargar Documento</h3>
+                        <form class="upload-form" id="uploadForm">
+                            <input type="file" id="documentFile" accept=".txt,.pdf" required>
+                            <input type="text" id="documentTitle" placeholder="Título del documento" required>
+                            <button type="submit" class="btn btn-success">Cargar Documento</button>
+                        </form>
+                        <div id="uploadStatus"></div>
+                    </div>
+                    
+                    <div class="stats">
+                        <h4>📊 Estadísticas del Sistema</h4>
+                        <div class="stats-grid" id="statsGrid">
+                            <div class="stat-item">
+                                <span class="stat-number" id="docCount">-</span>
+                                <span class="stat-label">Documentos</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-number" id="chunkCount">-</span>
+                                <span class="stat-label">Fragmentos</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-number" id="wordCount">-</span>
+                                <span class="stat-label">Palabras</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -325,7 +790,7 @@ async def chat_interface(request: Request):
                 const data = await response.json();
                 addMessage(data.response, 'bot');
             } catch (error) {
-                addMessage('Error: ' + error.message, 'bot');
+                addMessage('❌ Error de conexión: ' + error.message, 'bot');
             }
         }
         
@@ -350,7 +815,7 @@ async def chat_interface(request: Request):
             const title = titleInput.value.trim();
             
             if (!file || !title) {
-                statusDiv.innerHTML = '<p style="color: red;">Por favor selecciona un archivo y proporciona un título.</p>';
+                statusDiv.innerHTML = '<div class="status-message status-error">Por favor selecciona un archivo y proporciona un título.</div>';
                 return;
             }
             
@@ -358,7 +823,7 @@ async def chat_interface(request: Request):
             formData.append('file', file);
             formData.append('title', title);
             
-            statusDiv.innerHTML = '<p style="color: blue;">Cargando documento...</p>';
+            statusDiv.innerHTML = '<div class="status-message status-info">Cargando documento...</div>';
             
             try {
                 const response = await fetch('/api/upload', {
@@ -369,15 +834,15 @@ async def chat_interface(request: Request):
                 const result = await response.json();
                 
                 if (response.ok) {
-                    statusDiv.innerHTML = `<p style="color: green;">✅ Documento cargado exitosamente: ${result.chunks_created} fragmentos creados.</p>`;
+                    statusDiv.innerHTML = `<div class="status-message status-success">✅ Documento cargado exitosamente: ${result.chunks_created} fragmentos creados.</div>`;
                     fileInput.value = '';
                     titleInput.value = '';
                     loadStats();
                 } else {
-                    statusDiv.innerHTML = `<p style="color: red;">❌ Error: ${result.detail}</p>`;
+                    statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: ${result.detail}</div>`;
                 }
             } catch (error) {
-                statusDiv.innerHTML = `<p style="color: red;">❌ Error: ${error.message}</p>`;
+                statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: ${error.message}</div>`;
             }
         });
         
@@ -386,13 +851,16 @@ async def chat_interface(request: Request):
             try {
                 const response = await fetch('/api/stats');
                 const data = await response.json();
-                document.getElementById('stats').innerHTML = 
-                    `Documentos: ${data.total_documents} | Fragmentos: ${data.total_chunks} | Palabras: ${data.total_words}`;
+                
+                document.getElementById('docCount').textContent = data.total_documents;
+                document.getElementById('chunkCount').textContent = data.total_chunks;
+                document.getElementById('wordCount').textContent = data.total_words;
             } catch (error) {
-                document.getElementById('stats').innerHTML = 'Error cargando estadísticas';
+                console.error('Error cargando estadísticas:', error);
             }
         }
         
+        // Cargar estadísticas al inicio
         loadStats();
         </script>
     </body>
@@ -444,7 +912,7 @@ async def upload_document(file: UploadFile = File(...), title: str = Form(...)):
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(chat_message: ChatMessage):
-    """Endpoint para procesar mensajes del chat"""
+    """Endpoint para procesar mensajes del chat con RAG contextual"""
     if not db:
         return ChatResponse(
             response="❌ **Error:** Base de datos no disponible",
@@ -455,63 +923,18 @@ async def chat_endpoint(chat_message: ChatMessage):
     start_time = time.time()
     
     try:
-        # Buscar en documentos
-        search_results = db.search_documents(chat_message.message, limit=3)
+        # Buscar en documentos usando RAG contextual
+        search_results = db.search_documents(chat_message.message, limit=5)
         
-        if search_results:
-            # Construir respuesta basada en los resultados
-            response_parts = []
-            response_parts.append(f"✅ **Encontré información sobre:** '{chat_message.message}'")
-            response_parts.append("")
-            
-            # Procesar contenido encontrado
-            all_content = []
-            for result in search_results:
-                content = result['content']
-                clean_content = content.replace("...", "").strip()
-                all_content.append(clean_content)
-            
-            # Usar el contenido real encontrado
-            combined_content = ' '.join(all_content)
-            
-            # Dividir en oraciones para mejor legibilidad
-            sentences = combined_content.split('. ')
-            formatted_sentences = []
-            
-            for sentence in sentences:
-                sentence = sentence.strip()
-                if sentence and len(sentence) > 10:
-                    if sentence and sentence[0].islower():
-                        sentence = sentence[0].upper() + sentence[1:]
-                    formatted_sentences.append(sentence)
-            
-            if formatted_sentences:
-                response_parts.append('. '.join(formatted_sentences) + '.')
-            else:
-                response_parts.append(combined_content)
-            
-            response_text = "\n".join(response_parts)
-            confidence = 0.8 if len(search_results) > 0 else 0.3
-        else:
-            response_text = f"""❌ **No encontré información específica sobre:** '{chat_message.message}'
-
-💡 **Consejos para mejorar tu búsqueda:**
-• Intenta con términos más específicos
-• Usa palabras clave relacionadas con el tema
-• Pregunta sobre reglas específicas como 'Regla 21' o 'Regla 510'
-• Consulta sobre temas como: apuestas, drogas, tabaco, violencia doméstica, redes sociales
-
-🔍 **Ejemplos de búsquedas que funcionan:**
-• "corredor fantasma"
-• "reglas de apuestas"
-• "política de drogas"
-• "violencia doméstica"
-• "redes sociales"
-• "tabaco"
-• "novatadas"
-
-🎯 **Intenta reformular tu pregunta o usar términos más específicos.**"""
-            confidence = 0.3
+        # Calcular confianza basada en resultados
+        confidence = min(0.9, 0.3 + (len(search_results) * 0.15))
+        
+        # Formatear respuesta experta
+        response_text = db.rag_system.format_expert_response(
+            chat_message.message, 
+            search_results, 
+            confidence
+        )
         
         processing_time = time.time() - start_time
         
@@ -530,7 +953,7 @@ async def chat_endpoint(chat_message: ChatMessage):
             response=f"❌ **Error:** {str(e)}",
             confidence=0.0,
             processing_time=time.time() - start_time
-    )
+        )
 
 @app.get("/api/health")
 async def health_check():
@@ -576,7 +999,7 @@ async def get_documents():
     }
 
 if __name__ == "__main__":
-    print("🤖 MLB Assistant Chat - Iniciando con PostgreSQL (v2)...")
+    print("🤖 MLB Assistant Chat - Iniciando con RAG Contextual Avanzado...")
     
     if db:
         stats = db.get_stats()
@@ -591,7 +1014,7 @@ if __name__ == "__main__":
     print(f"🌐 Servidor web iniciando en puerto {port}")
     
     uvicorn.run(
-        "railway_app_postgres:app",
+        "railway_app:app",
         host="0.0.0.0",
         port=port,
         reload=False
