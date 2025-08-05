@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
-🤖 MLB Assistant Chat - Aplicación para Railway con PostgreSQL
+🤖 MLB Assistant Chat - Aplicación para Railway
 
-Esta aplicación está optimizada para despliegue en Railway y usa PostgreSQL
-como base de datos principal.
+Esta aplicación está optimizada para despliegue en Railway.
 """
 
 import os
@@ -21,8 +20,6 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
-import psycopg2
-from psycopg2.extras import RealDictCursor
 
 # Configuración de directorios
 BASE_DIR = Path(__file__).parent
@@ -64,93 +61,68 @@ class ChatResponse(BaseModel):
     confidence: float = 0.0
     processing_time: float = 0.0
 
-class PostgreSQLDatabase:
+class DocumentSearch:
     def __init__(self):
-        self.database_url = os.environ.get('DATABASE_URL')
-        if not self.database_url:
-            raise ValueError("DATABASE_URL no encontrada en variables de entorno")
+        self.documents_file = DATA_DIR / "documents.json"
+        self.chunks_file = DATA_DIR / "chunks.json"
+        self.documents = {}
+        self.chunks = {}
+        self.load_data()
     
-    def get_connection(self):
-        """Obtener conexión a la base de datos"""
-        return psycopg2.connect(self.database_url)
-    
-    def search_documents(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
-        """Buscar documentos usando búsqueda de texto completo"""
+    def load_data(self):
+        """Cargar documentos y fragmentos desde archivos JSON"""
         try:
-            with self.get_connection() as conn:
-                with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                    cursor.execute("""
-                        SELECT c.id, c.content, c.title, c.document_id,
-                               ts_rank(to_tsvector('spanish', c.content), plainto_tsquery('spanish', %s)) as relevance
-                        FROM chunks c
-                        WHERE to_tsvector('spanish', c.content) @@ plainto_tsquery('spanish', %s)
-                        ORDER BY relevance DESC
-                        LIMIT %s
-                    """, (query, query, limit))
-                    
-                    results = cursor.fetchall()
-                    return [dict(row) for row in results]
-                    
+            if self.documents_file.exists():
+                with open(self.documents_file, 'r', encoding='utf-8') as f:
+                    self.documents = json.load(f)
+            
+            if self.chunks_file.exists():
+                with open(self.chunks_file, 'r', encoding='utf-8') as f:
+                    self.chunks = json.load(f)
         except Exception as e:
-            print(f"❌ Error en búsqueda: {e}")
-            return []
+            print(f"Error cargando datos: {e}")
     
-    def add_document(self, doc_id: str, title: str, filename: str, content: str) -> int:
+    def save_data(self):
+        """Guardar documentos y fragmentos a archivos JSON"""
+        try:
+            with open(self.documents_file, 'w', encoding='utf-8') as f:
+                json.dump(self.documents, f, ensure_ascii=False, indent=2)
+            
+            with open(self.chunks_file, 'w', encoding='utf-8') as f:
+                json.dump(self.chunks, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"Error guardando datos: {e}")
+    
+    def add_document(self, doc_id: str, title: str, filename: str, content: str):
         """Agregar un nuevo documento"""
-        try:
-            with self.get_connection() as conn:
-                with conn.cursor() as cursor:
-                    # Dividir contenido en fragmentos
-                    chunks = self.split_content_into_chunks(content)
-                    
-                    # Insertar documento
-                    cursor.execute("""
-                        INSERT INTO documents (id, title, filename, upload_date, total_chunks, total_words, file_size)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
-                        ON CONFLICT (id) DO UPDATE SET
-                            title = EXCLUDED.title,
-                            filename = EXCLUDED.filename,
-                            upload_date = EXCLUDED.upload_date,
-                            total_chunks = EXCLUDED.total_chunks,
-                            total_words = EXCLUDED.total_words,
-                            file_size = EXCLUDED.file_size
-                    """, (
-                        doc_id,
-                        title,
-                        filename,
-                        datetime.now(),
-                        len(chunks),
-                        len(content.split()),
-                        len(content.encode('utf-8'))
-                    ))
-                    
-                    # Eliminar chunks existentes del documento
-                    cursor.execute("DELETE FROM chunks WHERE document_id = %s", (doc_id,))
-                    
-                    # Insertar nuevos chunks
-                    for i, chunk in enumerate(chunks):
-                        chunk_id = f"{doc_id}_chunk_{i:03d}"
-                        cursor.execute("""
-                            INSERT INTO chunks (id, content, title, document_id, page, chunk_index, word_count)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s)
-                        """, (
-                            chunk_id,
-                            chunk,
-                            title,
-                            doc_id,
-                            1,
-                            i,
-                            len(chunk.split())
-                        ))
-                    
-                    conn.commit()
-                    return len(chunks)
-                    
-        except Exception as e:
-            print(f"❌ Error agregando documento: {e}")
-            return 0
+        # Dividir el contenido en fragmentos
+        chunks = self.split_content_into_chunks(content, doc_id, title)
+        
+        # Guardar documento
+        self.documents[doc_id] = {
+            'title': title,
+            'filename': filename,
+            'upload_date': datetime.now().isoformat(),
+            'total_chunks': len(chunks),
+            'pages': 1  # Simplificado por ahora
+        }
+        
+        # Guardar fragmentos
+        for i, chunk in enumerate(chunks):
+            chunk_id = f"{doc_id}_chunk_{i}"
+            self.chunks[chunk_id] = {
+                'content': chunk,
+                'title': title,
+                'document': doc_id,
+                'page': 1,
+                'chunk_index': i
+            }
+        
+        # Guardar a archivo
+        self.save_data()
+        return len(chunks)
     
-    def split_content_into_chunks(self, content: str, chunk_size: int = 1000) -> List[str]:
+    def split_content_into_chunks(self, content: str, doc_id: str, title: str, chunk_size: int = 1000) -> List[str]:
         """Dividir contenido en fragmentos manejables"""
         # Dividir por oraciones primero
         sentences = content.split('. ')
@@ -175,75 +147,52 @@ class PostgreSQLDatabase:
         
         return chunks
     
-    def get_stats(self) -> Dict[str, Any]:
+    def search_documents(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Buscar en los documentos usando búsqueda inteligente"""
+        query_lower = query.lower()
+        results = []
+        seen_content = set()
+        
+        # Buscar en los fragmentos
+        for chunk_id, chunk_data in self.chunks.items():
+            content = chunk_data.get('content', '').lower()
+            title = chunk_data.get('title', '').lower()
+            
+            # Verificar si la consulta aparece en el contenido
+            if query_lower in content or query_lower in title:
+                if content not in seen_content:
+                    seen_content.add(content)
+                    results.append({
+                        'id': chunk_id,
+                        'title': chunk_data.get('title', 'Sin título'),
+                        'content': chunk_data.get('content', ''),
+                        'page': chunk_data.get('page', 0),
+                        'document': chunk_data.get('document', ''),
+                        'relevance': 0.9
+                    })
+        
+        # Ordenar por relevancia y limitar resultados
+        results.sort(key=lambda x: x['relevance'], reverse=True)
+        return results[:limit]
+    
+    def get_document_stats(self) -> Dict[str, Any]:
         """Obtener estadísticas de documentos"""
-        try:
-            with self.get_connection() as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute("SELECT COUNT(*) FROM documents")
-                    total_documents = cursor.fetchone()[0]
-                    
-                    cursor.execute("SELECT COUNT(*) FROM chunks")
-                    total_chunks = cursor.fetchone()[0]
-                    
-                    cursor.execute("SELECT COALESCE(SUM(word_count), 0) FROM chunks")
-                    total_words = cursor.fetchone()[0]
-                    
-                    return {
-                        "total_documents": total_documents,
-                        "total_chunks": total_chunks,
-                        "total_words": total_words
-                    }
-                    
-        except Exception as e:
-            print(f"❌ Error obteniendo estadísticas: {e}")
-            return {"total_documents": 0, "total_chunks": 0, "total_words": 0}
-    
-    def get_documents(self) -> List[Dict[str, Any]]:
-        """Obtener lista de documentos"""
-        try:
-            with self.get_connection() as conn:
-                with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                    cursor.execute("""
-                        SELECT id, title, filename, upload_date, total_chunks, total_words
-                        FROM documents
-                        ORDER BY upload_date DESC
-                    """)
-                    
-                    results = cursor.fetchall()
-                    return [dict(row) for row in results]
-                    
-        except Exception as e:
-            print(f"❌ Error obteniendo documentos: {e}")
-            return []
-    
-    def log_chat(self, user_message: str, assistant_response: str, confidence: float, processing_time: float, sources: List[Dict] = None):
-        """Registrar conversación en la base de datos"""
-        try:
-            with self.get_connection() as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute("""
-                        INSERT INTO chat_logs (user_message, assistant_response, confidence, processing_time, sources)
-                        VALUES (%s, %s, %s, %s, %s)
-                    """, (
-                        user_message,
-                        assistant_response,
-                        confidence,
-                        processing_time,
-                        json.dumps(sources) if sources else None
-                    ))
-                    conn.commit()
-                    
-        except Exception as e:
-            print(f"❌ Error registrando chat: {e}")
+        return {
+            "total_documents": len(self.documents),
+            "total_chunks": len(self.chunks),
+            "documents": [
+                {
+                    "id": doc_id,
+                    "title": doc.get('title', 'Sin título'),
+                    "pages": doc.get('pages', 0),
+                    "chunks": doc.get('total_chunks', 0)
+                }
+                for doc_id, doc in self.documents.items()
+            ]
+        }
 
-# Instancia global de la base de datos
-try:
-    db = PostgreSQLDatabase()
-    print("✅ Conexión a PostgreSQL establecida")
-except Exception as e:
-    print(f"❌ Error conectando a PostgreSQL: {e}")
-    db = None
+# Instancia global del buscador de documentos
+document_search = DocumentSearch()
 
 @app.get("/", response_class=HTMLResponse)
 async def chat_interface(request: Request):
@@ -280,7 +229,7 @@ async def chat_interface(request: Request):
         <div class="container">
             <div class="header">
                 <h1>🤖 MLB Assistant Chat</h1>
-                <p>Asistente especializado en reglas de MLB (PostgreSQL)</p>
+                <p>Asistente especializado en reglas de MLB</p>
             </div>
             <div class="chat-container" id="chatContainer">
                 <div class="message bot-message">
@@ -387,7 +336,7 @@ async def chat_interface(request: Request):
                 const response = await fetch('/api/stats');
                 const data = await response.json();
                 document.getElementById('stats').innerHTML = 
-                    `Documentos: ${data.total_documents} | Fragmentos: ${data.total_chunks} | Palabras: ${data.total_words}`;
+                    `Documentos: ${data.total_documents} | Fragmentos: ${data.total_chunks}`;
             } catch (error) {
                 document.getElementById('stats').innerHTML = 'Error cargando estadísticas';
             }
@@ -402,9 +351,6 @@ async def chat_interface(request: Request):
 @app.post("/api/upload")
 async def upload_document(file: UploadFile = File(...), title: str = Form(...)):
     """Endpoint para cargar documentos"""
-    if not db:
-        raise HTTPException(status_code=500, detail="Base de datos no disponible")
-    
     try:
         # Validar tipo de archivo
         if not file.filename.lower().endswith(('.txt', '.pdf')):
@@ -428,8 +374,8 @@ async def upload_document(file: UploadFile = File(...), title: str = Form(...)):
             # Para PDFs, por ahora usar contenido simple
             text_content = f"Documento PDF: {title}\n\nEste es un documento PDF que necesita ser procesado con herramientas específicas."
         
-        # Agregar documento a la base de datos
-        chunks_created = db.add_document(doc_id, title, file.filename, text_content)
+        # Agregar documento al sistema
+        chunks_created = document_search.add_document(doc_id, title, file.filename, text_content)
         
         return {
             "message": "Documento cargado exitosamente",
@@ -445,18 +391,11 @@ async def upload_document(file: UploadFile = File(...), title: str = Form(...)):
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(chat_message: ChatMessage):
     """Endpoint para procesar mensajes del chat"""
-    if not db:
-        return ChatResponse(
-            response="❌ **Error:** Base de datos no disponible",
-            confidence=0.0,
-            processing_time=0.0
-        )
-    
     start_time = time.time()
     
     try:
         # Buscar en documentos
-        search_results = db.search_documents(chat_message.message, limit=3)
+        search_results = document_search.search_documents(chat_message.message, limit=3)
         
         if search_results:
             # Construir respuesta basada en los resultados
@@ -515,9 +454,6 @@ async def chat_endpoint(chat_message: ChatMessage):
         
         processing_time = time.time() - start_time
         
-        # Registrar en la base de datos
-        db.log_chat(chat_message.message, response_text, confidence, processing_time, search_results)
-        
         return ChatResponse(
             response=response_text,
             sources=search_results,
@@ -535,63 +471,45 @@ async def chat_endpoint(chat_message: ChatMessage):
 @app.get("/api/health")
 async def health_check():
     """Health check para Railway"""
-    stats = db.get_stats() if db else {"total_documents": 0, "total_chunks": 0, "total_words": 0}
-    
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "database": "postgresql" if db else "none",
-        "documents_loaded": stats.get("total_documents", 0),
-        "chunks_loaded": stats.get("total_chunks", 0),
-        "words_loaded": stats.get("total_words", 0)
+        "documents_loaded": len(document_search.documents),
+        "chunks_loaded": len(document_search.chunks)
     }
 
 @app.get("/api/stats")
 async def get_stats():
     """Obtener estadísticas de documentos"""
-    if not db:
-        return {"total_documents": 0, "total_chunks": 0, "total_words": 0}
-    
-    return db.get_stats()
+    return document_search.get_document_stats()
 
 @app.get("/api/documents")
 async def get_documents():
     """Obtener lista de documentos disponibles"""
-    if not db:
-        return {"documents": []}
-    
-    documents = db.get_documents()
     return {
         "documents": [
             {
-                "id": doc.get('id', ''),
+                "id": doc_id,
                 "title": doc.get('title', 'Sin título'),
-                "filename": doc.get('filename', ''),
-                "upload_date": doc.get('upload_date', ''),
+                "pages": doc.get('pages', 0),
                 "chunks": doc.get('total_chunks', 0),
-                "words": doc.get('total_words', 0)
+                "upload_date": doc.get('upload_date', '')
             }
-            for doc in documents
+            for doc_id, doc in document_search.documents.items()
         ]
     }
 
 if __name__ == "__main__":
-    print("🤖 MLB Assistant Chat - Iniciando con PostgreSQL...")
-    
-    if db:
-        stats = db.get_stats()
-        print(f"📚 Documentos en BD: {stats.get('total_documents', 0)}")
-        print(f"🧩 Fragmentos en BD: {stats.get('total_chunks', 0)}")
-        print(f"📝 Palabras en BD: {stats.get('total_words', 0)}")
-    else:
-        print("⚠️  Base de datos no disponible")
+    print("🤖 MLB Assistant Chat - Iniciando...")
+    print(f"📚 Documentos cargados: {len(document_search.documents)}")
+    print(f"🧩 Fragmentos disponibles: {len(document_search.chunks)}")
     
     # Obtener puerto de Railway o usar 8000 por defecto
     port = int(os.environ.get("PORT", 8000))
     print(f"🌐 Servidor web iniciando en puerto {port}")
     
     uvicorn.run(
-        "railway_app_postgres:app",
+        "railway_app:app",
         host="0.0.0.0",
         port=port,
         reload=False
