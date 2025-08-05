@@ -17,13 +17,13 @@ from pathlib import Path
 import json
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import Chroma, FAISS
+from langchain_openai import OpenAIEmbeddings
+from langchain_community.vectorstores import Chroma, FAISS
 from langchain.schema import Document
 from langchain.retrievers import ContextualCompressionRetriever
 from langchain.retrievers.document_compressors import LLMChainExtractor
 from langchain.chains import RetrievalQA
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from loguru import logger
 
