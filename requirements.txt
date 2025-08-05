@@ -14,4 +14,7 @@ httpx==0.28.1
 numpy==2.2.6
 
 # PDF processing
-PyPDF2==3.0.1 
+PyPDF2==3.0.1
+
+# Database connectivity
+psycopg2-binary==2.9.9 
