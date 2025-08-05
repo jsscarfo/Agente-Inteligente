@@ -11,4 +11,7 @@ requests==2.32.4
 httpx==0.28.1
 
 # Data processing (minimal)
-numpy==2.2.6 
+numpy==2.2.6
+
+# PDF processing
+PyPDF2==3.0.1 

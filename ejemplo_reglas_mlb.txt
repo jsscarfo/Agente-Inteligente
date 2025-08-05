@@ -1,0 +1,160 @@
+REGLAS OFICIALES DE MAJOR LEAGUE BASEBALL (MLB) - 2024
+
+SECCIÓN 1: REGLAS BÁSICAS DEL JUEGO
+
+1.1 EL CAMPO DE JUEGO
+El campo de béisbol debe tener las siguientes dimensiones:
+- Distancia desde el home plate hasta la cerca del jardín central: mínimo 400 pies
+- Distancia desde el home plate hasta las esquinas: mínimo 325 pies
+- El montículo del lanzador debe estar a 60 pies 6 pulgadas del home plate
+
+1.2 EQUIPOS Y JUGADORES
+- Cada equipo debe tener 26 jugadores en su roster activo
+- Un equipo puede tener hasta 40 jugadores en su roster expandido
+- Cada equipo debe tener al menos 13 lanzadores en su roster activo
+
+1.3 DURACIÓN DEL JUEGO
+- Un juego oficial consta de 9 entradas
+- Si el juego está empatado después de 9 entradas, se juegan entradas extra
+- Un juego puede terminar en empate solo si se suspende por condiciones climáticas
+
+SECCIÓN 2: REGLAS DE PITCHING
+
+2.1 REGLA DEL PITCH CLOCK
+- Los lanzadores tienen 15 segundos para lanzar con las bases vacías
+- Los lanzadores tienen 20 segundos para lanzar con corredores en base
+- Los bateadores deben estar en la caja del bateador con 8 segundos restantes
+- Violación del pitch clock resulta en una bola automática
+
+2.2 REGLA DEL PICKOFF
+- Los lanzadores pueden hacer máximo 2 intentos de pickoff por entrada
+- Un tercer intento de pickoff que no resulte en out se considera balk
+- Los intentos de pickoff se reinician cuando un corredor avanza
+
+2.3 REGLA DEL PITCHER OPENER
+- Un equipo puede usar un "opener" (lanzador que inicia el juego por 1-2 entradas)
+- El opener debe enfrentar al menos 3 bateadores o completar la entrada
+- Después del opener, puede entrar un "bulk pitcher" para el resto del juego
+
+SECCIÓN 3: REGLAS DE BATEO
+
+3.1 REGLA DEL DESIGNATED HITTER (DH)
+- En la Liga Americana, se permite usar un bateador designado
+- El DH puede batear en lugar del lanzador
+- En la Liga Nacional, el lanzador debe batear (a menos que sea en juego interliga)
+
+3.2 REGLA DEL SHIFT DEFENSIVO
+- Se prohíbe el shift defensivo extremo
+- Debe haber al menos 2 jugadores de cuadro en cada lado de segunda base
+- Los jardineros deben permanecer en el jardín
+
+3.3 REGLA DEL BATEADOR FANTASMA
+- Se prohíbe el uso de "bateadores fantasma"
+- Cada bateador debe completar su turno al bate
+- No se permiten sustituciones durante un turno al bate
+
+SECCIÓN 4: REGLAS DE CORRIDA DE BASES
+
+4.1 REGLA DEL CORREDOR FANTASMA
+- Se permite usar un corredor fantasma en segunda base en entradas extra
+- El corredor fantasma es el último bateador eliminado del lineup
+- El corredor fantasma comienza en segunda base al inicio de cada entrada extra
+
+4.2 REGLA DE CONTACTO
+- Los corredores no pueden hacer contacto intencional con los jugadores defensivos
+- El contacto accidental puede resultar en out por interferencia
+- Los jugadores defensivos no pueden bloquear las bases sin la pelota
+
+4.3 REGLA DEL SLIDE
+- Los corredores deben hacer slide legal en segunda base en jugadas de doble play
+- El slide debe ser hacia la base, no hacia el jugador
+- Los slides ilegales resultan en doble play automático
+
+SECCIÓN 5: REGLAS DE REPLAY Y REVISIÓN
+
+5.1 REPLAY REVIEW
+- Los managers pueden solicitar revisión de ciertas jugadas
+- Cada equipo tiene 2 desafíos por juego
+- Si un desafío es exitoso, el equipo mantiene su desafío
+- En la séptima entrada en adelante, el árbitro puede iniciar revisión
+
+5.2 JUGADAS REVISABLES
+- Out/safe en bases
+- Home runs (incluyendo foul/fair)
+- Catch/no catch en el jardín
+- Tag plays
+- Force plays
+
+SECCIÓN 6: REGLAS DE SUSPENSIÓN Y DISCIPLINA
+
+6.1 SUSPENSIONES AUTOMÁTICAS
+- Peleas en el campo: 3-5 juegos
+- Lanzamientos intencionales: 5-10 juegos
+- Uso de sustancias prohibidas: 80 juegos (primera ofensa)
+
+6.2 REGLA DE EYECTOR AUTOMÁTICO
+- Lanzamientos a la cabeza: expulsión automática
+- Peleas físicas: expulsión automática
+- Uso de lenguaje ofensivo hacia árbitros: expulsión
+
+SECCIÓN 7: REGLAS ESPECIALES
+
+7.1 REGLA DE LA PANDEMIA (COVID-19)
+- Los equipos pueden tener hasta 28 jugadores en el roster
+- Se permite el uso de taxi squad
+- Los juegos pueden ser reprogramados por brotes de COVID-19
+
+7.2 REGLA DE DOBLEHEADER
+- Los dobleheaders consisten en dos juegos de 7 entradas
+- Entre juegos hay un descanso de 30 minutos
+- Los equipos pueden tener 27 jugadores para dobleheaders
+
+7.3 REGLA DE JUEGOS SUSPENDIDOS
+- Un juego se puede suspender por condiciones climáticas
+- Los juegos suspendidos se reanudan desde el punto de suspensión
+- Los juegos completados después de 5 entradas son oficiales
+
+SECCIÓN 8: REGLAS DE POSTEMPORADA
+
+8.1 FORMATO DE POSTEMPORADA
+- 12 equipos califican para postemporada
+- 3 divisiones por liga más 3 wild cards
+- Serie de 3 juegos para wild card
+- Serie de 5 juegos para divisional
+- Serie de 7 juegos para campeonato y Serie Mundial
+
+8.2 REGLAS ESPECIALES DE POSTEMPORADA
+- No hay corredor fantasma en postemporada
+- Los rosters se expanden a 26 jugadores
+- Se permite el uso de taxi squad
+- Los juegos no pueden terminar en empate
+
+SECCIÓN 9: REGLAS DE ESTADÍSTICAS
+
+9.1 ESTADÍSTICAS OFICIALES
+- Las estadísticas se cuentan solo en juegos oficiales
+- Los juegos suspendidos antes de 5 entradas no cuentan
+- Las estadísticas de postemporada son separadas de temporada regular
+
+9.2 REGLA DEL NO-HITTER
+- Un no-hitter requiere 9 entradas completas
+- Los no-hitters en entradas extra requieren que el equipo no anote
+- Los no-hitters combinados cuentan como no-hitter oficial
+
+SECCIÓN 10: REGLAS DE ARBITRAJE
+
+10.1 CREW CHIEF
+- El crew chief es responsable de las decisiones finales
+- El crew chief puede consultar con otros árbitros
+- El crew chief puede usar replay review sin solicitud del manager
+
+10.2 REGLA DE PROTESTO
+- Los managers pueden protestar juegos por interpretación de reglas
+- Las protestas deben ser presentadas antes del siguiente lanzamiento
+- Las protestas exitosas resultan en repetición del juego desde el punto de protesta
+
+NOTAS IMPORTANTES:
+- Estas reglas están sujetas a cambios durante la temporada
+- La MLB puede implementar reglas experimentales
+- Las reglas pueden variar entre ligas menores y mayores
+- Se recomienda consultar el manual oficial de reglas para casos específicos 

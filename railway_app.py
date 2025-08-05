@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -26,11 +26,13 @@ BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
 TEMPLATES_DIR = BASE_DIR / "templates"
 STATIC_DIR = BASE_DIR / "static"
+UPLOADS_DIR = BASE_DIR / "data" / "uploads"
 
 # Crear directorios si no existen
 DATA_DIR.mkdir(exist_ok=True)
 TEMPLATES_DIR.mkdir(exist_ok=True)
 STATIC_DIR.mkdir(exist_ok=True)
+UPLOADS_DIR.mkdir(exist_ok=True)
 
 app = FastAPI(title="MLB Assistant Chat", version="1.0.0")
 
@@ -79,6 +81,71 @@ class DocumentSearch:
                     self.chunks = json.load(f)
         except Exception as e:
             print(f"Error cargando datos: {e}")
+    
+    def save_data(self):
+        """Guardar documentos y fragmentos a archivos JSON"""
+        try:
+            with open(self.documents_file, 'w', encoding='utf-8') as f:
+                json.dump(self.documents, f, ensure_ascii=False, indent=2)
+            
+            with open(self.chunks_file, 'w', encoding='utf-8') as f:
+                json.dump(self.chunks, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"Error guardando datos: {e}")
+    
+    def add_document(self, doc_id: str, title: str, filename: str, content: str):
+        """Agregar un nuevo documento"""
+        # Dividir el contenido en fragmentos
+        chunks = self.split_content_into_chunks(content, doc_id, title)
+        
+        # Guardar documento
+        self.documents[doc_id] = {
+            'title': title,
+            'filename': filename,
+            'upload_date': datetime.now().isoformat(),
+            'total_chunks': len(chunks),
+            'pages': 1  # Simplificado por ahora
+        }
+        
+        # Guardar fragmentos
+        for i, chunk in enumerate(chunks):
+            chunk_id = f"{doc_id}_chunk_{i}"
+            self.chunks[chunk_id] = {
+                'content': chunk,
+                'title': title,
+                'document': doc_id,
+                'page': 1,
+                'chunk_index': i
+            }
+        
+        # Guardar a archivo
+        self.save_data()
+        return len(chunks)
+    
+    def split_content_into_chunks(self, content: str, doc_id: str, title: str, chunk_size: int = 1000) -> List[str]:
+        """Dividir contenido en fragmentos manejables"""
+        # Dividir por oraciones primero
+        sentences = content.split('. ')
+        chunks = []
+        current_chunk = ""
+        
+        for sentence in sentences:
+            if len(current_chunk) + len(sentence) < chunk_size:
+                current_chunk += sentence + ". "
+            else:
+                if current_chunk:
+                    chunks.append(current_chunk.strip())
+                current_chunk = sentence + ". "
+        
+        # Agregar el último chunk si tiene contenido
+        if current_chunk.strip():
+            chunks.append(current_chunk.strip())
+        
+        # Si no hay chunks, crear uno con el contenido completo
+        if not chunks:
+            chunks = [content]
+        
+        return chunks
     
     def search_documents(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
         """Buscar en los documentos usando búsqueda inteligente"""
@@ -150,6 +217,12 @@ async def chat_interface(request: Request):
             .input-container button { padding: 10px 20px; background: #1e3a8a; color: white; border: none; border-radius: 5px; cursor: pointer; }
             .input-container button:hover { background: #1e40af; }
             .stats { padding: 10px; background: #f8f9fa; border-radius: 0 0 10px 10px; font-size: 12px; color: #666; }
+            .upload-section { padding: 20px; border-top: 1px solid #eee; }
+            .upload-form { display: flex; gap: 10px; align-items: center; }
+            .upload-form input[type="file"] { flex: 1; }
+            .upload-form input[type="text"] { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+            .upload-form button { padding: 10px 20px; background: #059669; color: white; border: none; border-radius: 5px; cursor: pointer; }
+            .upload-form button:hover { background: #047857; }
         </style>
     </head>
     <body>
@@ -167,6 +240,15 @@ async def chat_interface(request: Request):
                 <input type="text" id="messageInput" placeholder="Escribe tu pregunta..." onkeypress="if(event.key==='Enter') sendMessage()">
                 <button onclick="sendMessage()">Enviar</button>
             </div>
+            <div class="upload-section">
+                <h3>📚 Cargar Documento</h3>
+                <form class="upload-form" id="uploadForm">
+                    <input type="file" id="documentFile" accept=".txt,.pdf" required>
+                    <input type="text" id="documentTitle" placeholder="Título del documento" required>
+                    <button type="submit">Cargar</button>
+                </form>
+                <div id="uploadStatus"></div>
+            </div>
             <div class="stats" id="stats">
                 Cargando estadísticas...
             </div>
@@ -178,50 +260,133 @@ async def chat_interface(request: Request):
             const message = input.value.trim();
             if (!message) return;
             
-                // Agregar mensaje del usuario
-                addMessage(message, 'user');
+            // Agregar mensaje del usuario
+            addMessage(message, 'user');
             input.value = '';
             
             try {
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({message: message})
+                    body: JSON.stringify({message: message})
                 });
                 
                 const data = await response.json();
-                    addMessage(data.response, 'bot');
-                } catch (error) {
-                    addMessage('Error: ' + error.message, 'bot');
+                addMessage(data.response, 'bot');
+            } catch (error) {
+                addMessage('Error: ' + error.message, 'bot');
+            }
+        }
+        
+        function addMessage(text, sender) {
+            const container = document.getElementById('chatContainer');
+            const div = document.createElement('div');
+            div.className = `message ${sender}-message`;
+            div.innerHTML = text;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        // Manejar carga de documentos
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('documentFile');
+            const titleInput = document.getElementById('documentTitle');
+            const statusDiv = document.getElementById('uploadStatus');
+            
+            const file = fileInput.files[0];
+            const title = titleInput.value.trim();
+            
+            if (!file || !title) {
+                statusDiv.innerHTML = '<p style="color: red;">Por favor selecciona un archivo y proporciona un título.</p>';
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('title', title);
+            
+            statusDiv.innerHTML = '<p style="color: blue;">Cargando documento...</p>';
+            
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    statusDiv.innerHTML = `<p style="color: green;">✅ Documento cargado exitosamente: ${result.chunks_created} fragmentos creados.</p>`;
+                    fileInput.value = '';
+                    titleInput.value = '';
+                    loadStats();
+                } else {
+                    statusDiv.innerHTML = `<p style="color: red;">❌ Error: ${result.detail}</p>`;
                 }
+            } catch (error) {
+                statusDiv.innerHTML = `<p style="color: red;">❌ Error: ${error.message}</p>`;
             }
-            
-            function addMessage(text, sender) {
-                const container = document.getElementById('chatContainer');
-                const div = document.createElement('div');
-                div.className = `message ${sender}-message`;
-                div.innerHTML = text;
-                container.appendChild(div);
-                container.scrollTop = container.scrollHeight;
+        });
+        
+        // Cargar estadísticas
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+                document.getElementById('stats').innerHTML = 
+                    `Documentos: ${data.total_documents} | Fragmentos: ${data.total_chunks}`;
+            } catch (error) {
+                document.getElementById('stats').innerHTML = 'Error cargando estadísticas';
             }
-            
-            // Cargar estadísticas
-            async function loadStats() {
-                try {
-                    const response = await fetch('/api/stats');
-                    const data = await response.json();
-                    document.getElementById('stats').innerHTML = 
-                        `Documentos: ${data.total_documents} | Fragmentos: ${data.total_chunks}`;
-                } catch (error) {
-                    document.getElementById('stats').innerHTML = 'Error cargando estadísticas';
-                }
-            }
-            
-            loadStats();
+        }
+        
+        loadStats();
         </script>
     </body>
     </html>
     """)
+
+@app.post("/api/upload")
+async def upload_document(file: UploadFile = File(...), title: str = Form(...)):
+    """Endpoint para cargar documentos"""
+    try:
+        # Validar tipo de archivo
+        if not file.filename.lower().endswith(('.txt', '.pdf')):
+            raise HTTPException(status_code=400, detail="Solo se permiten archivos .txt y .pdf")
+        
+        # Generar ID único para el documento
+        doc_id = str(uuid.uuid4())
+        
+        # Guardar archivo
+        file_path = UPLOADS_DIR / f"{doc_id}_{file.filename}"
+        with open(file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+        
+        # Procesar contenido
+        if file.filename.lower().endswith('.txt'):
+            # Para archivos de texto
+            with open(file_path, 'r', encoding='utf-8') as f:
+                text_content = f.read()
+        else:
+            # Para PDFs, por ahora usar contenido simple
+            text_content = f"Documento PDF: {title}\n\nEste es un documento PDF que necesita ser procesado con herramientas específicas."
+        
+        # Agregar documento al sistema
+        chunks_created = document_search.add_document(doc_id, title, file.filename, text_content)
+        
+        return {
+            "message": "Documento cargado exitosamente",
+            "doc_id": doc_id,
+            "title": title,
+            "filename": file.filename,
+            "chunks_created": chunks_created
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error procesando documento: {str(e)}")
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(chat_message: ChatMessage):
