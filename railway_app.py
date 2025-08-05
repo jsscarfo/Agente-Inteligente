@@ -576,7 +576,7 @@ async def get_documents():
     }
 
 if __name__ == "__main__":
-    print("🤖 MLB Assistant Chat - Iniciando con PostgreSQL...")
+    print("🤖 MLB Assistant Chat - Iniciando con PostgreSQL (v2)...")
     
     if db:
         stats = db.get_stats()
