@@ -188,7 +188,7 @@ class AdvancedRAGSystem:
                     sentence = sentence[0].upper() + sentence[1:]
                 formatted_sentences.append(sentence)
         
-        # Agrupar en párrafos
+        # Agrupar en párrafos con mejor formato
         if formatted_sentences:
             paragraphs = []
             current_paragraph = []
@@ -203,7 +203,11 @@ class AdvancedRAGSystem:
             if current_paragraph:
                 paragraphs.append('. '.join(current_paragraph) + '.')
             
-            response_parts.extend(paragraphs)
+            # Agregar cada párrafo con saltos de línea
+            for i, paragraph in enumerate(paragraphs):
+                response_parts.append(paragraph)
+                if i < len(paragraphs) - 1:  # No agregar línea extra después del último párrafo
+                    response_parts.append("")
         
         # Información adicional si hay confianza alta
         if confidence > 0.7:
@@ -231,18 +235,29 @@ class AdvancedRAGSystem:
         response_parts.append("💡 **Sugerencias para mejorar tu búsqueda:**")
         response_parts.append("")
         response_parts.append("🎯 **Términos específicos que funcionan:**")
+        response_parts.append("")
         response_parts.append("• 'corredor fantasma' - Reglas sobre corredores en base")
+        response_parts.append("")
         response_parts.append("• 'pitch clock' - Regulaciones de tiempo")
+        response_parts.append("")
         response_parts.append("• 'reglas de apuestas' - Políticas sobre apuestas")
+        response_parts.append("")
         response_parts.append("• 'política de drogas' - Sustancias prohibidas")
+        response_parts.append("")
         response_parts.append("• 'violencia doméstica' - Sanciones por violencia")
+        response_parts.append("")
         response_parts.append("• 'redes sociales' - Uso de medios sociales")
+        response_parts.append("")
         response_parts.append("• 'tabaco' - Políticas sobre tabaco")
+        response_parts.append("")
         response_parts.append("• 'novatadas' - Prohibiciones de novatadas")
         response_parts.append("")
         response_parts.append("🔧 **Consejos:**")
+        response_parts.append("")
         response_parts.append("• Usa términos más específicos")
+        response_parts.append("")
         response_parts.append("• Busca por número de regla (ej: 'Regla 21')")
+        response_parts.append("")
         response_parts.append("• Reformula tu pregunta con palabras clave")
         response_parts.append("")
         response_parts.append("📚 **¿Necesitas cargar más documentos?** Usa la sección de carga de documentos para agregar más información.")
@@ -457,11 +472,33 @@ async def chat_interface(request: Request):
                 text-align: center;
             }
             
-            .header h1 {
-                font-size: 2.5rem;
-                font-weight: 700;
-                margin-bottom: 10px;
-                text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            .logo-container {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 20px;
+                margin-bottom: 20px;
+            }
+            
+            .mlb-logo {
+                filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+            }
+            
+            .logo-text h1 {
+                font-size: 3.5rem;
+                font-weight: 800;
+                margin: 0;
+                text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                color: #4682B4;
+            }
+            
+            .logo-text h2 {
+                font-size: 1.2rem;
+                font-weight: 600;
+                margin: 0;
+                text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+                color: #FF0000;
+                letter-spacing: 2px;
             }
             
             .header p {
@@ -701,8 +738,17 @@ async def chat_interface(request: Request):
                     border-bottom: 1px solid #e5e7eb;
                 }
                 
-                .header h1 {
-                    font-size: 2rem;
+                .logo-container {
+                    flex-direction: column;
+                    gap: 15px;
+                }
+                
+                .logo-text h1 {
+                    font-size: 2.5rem;
+                }
+                
+                .logo-text h2 {
+                    font-size: 1rem;
                 }
                 
                 .stats-grid {
@@ -714,7 +760,46 @@ async def chat_interface(request: Request):
     <body>
         <div class="container">
             <div class="header">
-                <h1>🤖 MLB Expert Assistant</h1>
+                <div class="logo-container">
+                    <svg class="mlb-logo" width="120" height="120" viewBox="0 0 120 120">
+                        <!-- Robot body -->
+                        <rect x="30" y="40" width="60" height="70" rx="8" fill="#87CEEB" stroke="#4682B4" stroke-width="2"/>
+                        
+                        <!-- Robot head -->
+                        <rect x="25" y="20" width="70" height="30" rx="8" fill="#87CEEB" stroke="#4682B4" stroke-width="2"/>
+                        
+                        <!-- Eyes -->
+                        <circle cx="40" cy="35" r="4" fill="white"/>
+                        <circle cx="40" cy="35" r="2" fill="black"/>
+                        <circle cx="80" cy="35" r="4" fill="white"/>
+                        <circle cx="80" cy="35" r="2" fill="black"/>
+                        
+                        <!-- Smile -->
+                        <path d="M 35 42 Q 60 50 85 42" stroke="black" stroke-width="2" fill="none"/>
+                        
+                        <!-- Ears/Communication devices -->
+                        <rect x="15" y="25" width="8" height="20" rx="4" fill="#4682B4"/>
+                        <rect x="97" y="25" width="8" height="20" rx="4" fill="#4682B4"/>
+                        
+                        <!-- Antenna -->
+                        <line x1="60" y1="20" x2="60" y2="10" stroke="#4682B4" stroke-width="3"/>
+                        <circle cx="60" cy="8" r="3" fill="#FF0000"/>
+                        
+                        <!-- Baseball cap -->
+                        <ellipse cx="60" cy="25" rx="40" ry="8" fill="#4682B4"/>
+                        <rect x="20" y="20" width="80" height="10" rx="5" fill="#4682B4"/>
+                        <ellipse cx="60" cy="30" rx="35" ry="6" fill="#FF0000"/>
+                        
+                        <!-- Baseball -->
+                        <circle cx="60" cy="85" r="15" fill="white" stroke="#FF0000" stroke-width="2"/>
+                        <path d="M 45 85 Q 60 75 75 85" stroke="#FF0000" stroke-width="2" fill="none"/>
+                        <path d="M 45 85 Q 60 95 75 85" stroke="#FF0000" stroke-width="2" fill="none"/>
+                    </svg>
+                    <div class="logo-text">
+                        <h1>MLB</h1>
+                        <h2>CHAT BOT</h2>
+                    </div>
+                </div>
                 <p>Sistema de Inteligencia Artificial Especializado en Reglas de MLB</p>
             </div>
             
