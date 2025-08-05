@@ -44,10 +44,10 @@ app.add_middleware(
 )
 
 # Montar archivos estáticos
-    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 # Configurar templates
-    templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 class ChatMessage(BaseModel):
     message: str
