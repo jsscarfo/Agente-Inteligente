@@ -339,8 +339,8 @@ if __name__ == "__main__":
     print(f"📚 Documentos cargados: {len(document_search.documents)}")
     print(f"🧩 Fragmentos disponibles: {len(document_search.chunks)}")
     
-    # Obtener puerto de Railway o usar 8080 por defecto
-    port = int(os.environ.get("PORT", 8080))
+    # Obtener puerto de Railway o usar 8000 por defecto
+    port = int(os.environ.get("PORT", 8000))
     print(f"🌐 Servidor web iniciando en puerto {port}")
     
     uvicorn.run(
