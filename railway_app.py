@@ -107,9 +107,9 @@ class AdvancedRAGSystem:
                     # Búsqueda principal con relevancia
                     cursor.execute("""
                         SELECT c.id, c.content, c.title, c.document_id,
-                               ts_rank(to_tsvector('spanish', c.content), plainto_tsquery('spanish', %s)) as relevance
+                               ts_rank(to_tsvector('english', c.content), plainto_tsquery('english', %s)) as relevance
                         FROM chunks c
-                        WHERE to_tsvector('spanish', c.content) @@ plainto_tsquery('spanish', %s)
+                        WHERE to_tsvector('english', c.content) @@ plainto_tsquery('english', %s)
                         ORDER BY relevance DESC
                         LIMIT %s
                     """, (query, query, limit))
@@ -121,9 +121,9 @@ class AdvancedRAGSystem:
                         keyword_query = ' | '.join(keywords)
                         cursor.execute("""
                             SELECT c.id, c.content, c.title, c.document_id,
-                                   ts_rank(to_tsvector('spanish', c.content), plainto_tsquery('spanish', %s)) as relevance
+                                   ts_rank(to_tsvector('english', c.content), plainto_tsquery('english', %s)) as relevance
                             FROM chunks c
-                            WHERE to_tsvector('spanish', c.content) @@ plainto_tsquery('spanish', %s)
+                            WHERE to_tsvector('english', c.content) @@ plainto_tsquery('english', %s)
                             ORDER BY relevance DESC
                             LIMIT %s
                         """, (keyword_query, keyword_query, limit - len(primary_results)))
